@@ -57,8 +57,8 @@ def getLogin():
         nonlocal email, password
         email = e1.get()
         password = e2.get()
-        print(email)
-        print(password)
+        # print(email)
+        # print(password)
         window.destroy()
 
     #Button_with hover effect
