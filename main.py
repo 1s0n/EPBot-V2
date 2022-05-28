@@ -153,7 +153,7 @@ def ScanWords():
         except Exception:
             pass
 
-    print("Reading...")
+    print("Analyzing...")
     options = res.find_elements(by=By.TAG_NAME, value="li")
     for option in options:
         words = option.find_elements(by=By.TAG_NAME, value="div")
@@ -163,15 +163,25 @@ def ScanWords():
         foreign = foreign.replace(";", ",")
         wordlist[eng] = foreign
     
-    print(wordlist)
+    print("Done! Going back...")
+    backbutton = driver.find_element(by=By.CSS_SELECTOR, value="#__single_spa_angular_1 > student-app-wrapper > div.main-content.v-group > div.nav-bar-dashboard.tight.ep-nav-bar.ng-isolate-scope > div > div > div.back-action.h-group.nav-bar-button.v-align-center.ng-scope")
+    backbutton.click()
 
+def doReading():
+    print("Doing reading...")
+    
+
+def doWriting():
+    print("Doing writing...")
 
 funcs.scanfunc = ScanWords
+funcs.readingfunc = doReading
+funcs.writingfunc = doWriting
 
 app = MainApp(exitfunc=onexit)
 
 print("Starting mainloop...")
 while True:
-    pass
+    sleep(10)
 
 driver.close()

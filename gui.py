@@ -1,3 +1,4 @@
+import time
 import tkinter
 from tkinter import Tk, Button, Label, Entry
 from tkinter import messagebox
@@ -7,10 +8,8 @@ class funcs:
     # To raise an exception found on https://stackoverflow.com/questions/8294618/define-a-lambda-expression-that-raises-an-exception
     scanfunc = lambda : (_ for _ in ()).throw(NotImplemented("scanfun() is not implemented!"))
     exitfunc = lambda : (_ for _ in ()).throw(NotImplemented("exitfunc() is not implemented!"))
-    @classmethod
-    def setfuncs(cls, scanfunc, exitfunc):
-        cls.scanfunc = scanfunc
-        cls.exitfunc = exitfunc
+    readingfunc = lambda : (_ for _ in ()).throw(NotImplemented("readingfunc() is not implemented!"))
+    writingfunc = lambda : (_ for _ in ()).throw(NotImplemented("writingfunc() is not implemented!"))
 
 def getLogin():
     window = Tk()
@@ -103,6 +102,8 @@ class ChoosePage(tkinter.Frame):
     def __init__(self, parent, controller):
         tkinter.Frame.__init__(self, parent, width=500)
         
+        self.controller = controller
+
         # label of frame Layout 2
         label = ttk.Label(self, text ="Go to the page with the vocab list\nand click scan", font = LARGEFONT)
         label.place(x=5, y=10)
@@ -114,26 +115,29 @@ class ChoosePage(tkinter.Frame):
         #label.grid(row = 0, column = 4, padx = 0, pady = 10)
   
         button1 = ttk.Button(self, text ="Scan",
-        command = funcs.scanfunc)
-     
+        command = self.ScanFunc)
+
         # putting the button in its place by
         # using grid
         button1.place(y=110, x=10)
 
+    def ScanFunc(self):
+        funcs.scanfunc()
+        self.controller.show_frame(MainPage)
 
 # second window frame page1
-class Page1(tkinter.Frame):
+class MainPage(tkinter.Frame):
      
     def __init__(self, parent, controller):
          
         tkinter.Frame.__init__(self, parent)
-        label = ttk.Label(self, text ="Page 1", font = LARGEFONT)
+        label = ttk.Label(self, text ="Education Perfect Bot\n     Control panel", font = LARGEFONT)
         label.grid(row = 0, column = 4, padx = 10, pady = 10)
   
         # button to show frame 2 with text
         # layout2
-        button1 = ttk.Button(self, text ="StartPage",
-                            command = lambda : controller.show_frame(StartPage))
+        button1 = ttk.Button(self, text ="Reading",
+                            command = self.reading)
      
         # putting the button in its place
         # by using grid
@@ -141,12 +145,18 @@ class Page1(tkinter.Frame):
   
         # button to show frame 2 with text
         # layout2
-        button2 = ttk.Button(self, text ="Page 2",
-                            command = lambda : controller.show_frame(Page2))
+        button2 = ttk.Button(self, text ="Writing",
+                            command = self.writing)
      
         # putting the button in its place by
         # using grid
         button2.grid(row = 2, column = 1, padx = 10, pady = 10)
+
+    def reading(self):
+        funcs.readingfunc()
+
+    def writing(self):
+        funcs.writingfunc()
 
 import sys
 
@@ -174,7 +184,7 @@ class MainApp(threading.Thread):
 
         self.frames = {} 
 
-        for F in (Page1, ChoosePage):
+        for F in (MainPage, ChoosePage):
   
             frame = F(container, self)
   
@@ -193,12 +203,26 @@ class MainApp(threading.Thread):
         frame = self.frames[cont]
         frame.tkraise()
 
+# Debug
 def onexit():
     os._exit(0)
 
+def fakescan():
+    pass
+
+def faker():
+    print("Doing reading...")
+
+def fakew():
+    print("Doing writing...")
+
+
 if __name__ == "__main__":
+    funcs.scanfunc = fakescan
+    funcs.readingfunc = faker
+    funcs.writingfunc = fakew
 
     app = MainApp(exitfunc=onexit)
 
     while True:
-        pass
+        time.sleep(10)
