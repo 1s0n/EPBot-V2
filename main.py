@@ -25,10 +25,11 @@ system = platform.system()
 if system == "Windows":
     datapath = os.getenv('APPDATA') + "\\epbot"
 elif system == "Linux":
-    datapath = "/var/lib/epbot"
+    datapath = os.path.expanduser('~') + ".chromedriver"
 elif system == "Darwin":
     datapath = os.path.expanduser('~') + "/Library/Application Support/epbot"
-if not os.path.isdir(datapath): os.mkdir(datapath)
+if not os.path.isdir(datapath): 
+    os.mkdir(datapath)
 
 print("Setting more variables...")
 
@@ -58,6 +59,10 @@ login_error_selector = "#content > div.ivu-card.ivu-card-dis-hover.ivu-card-shad
 
 print("Verifying chromedriver/autoinstalling chromedriver...")
 chromedriver_autoinstaller.install(path=datapath)
+
+from pyvirtualdisplay import Display
+display = Display(visible=0, size=(800, 800))  
+display.start()
 
 driver = webdriver.Chrome()
 

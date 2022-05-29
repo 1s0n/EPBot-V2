@@ -4,8 +4,6 @@ from tkinter import Tk, Button, Label, Entry
 from tkinter import messagebox
 from tkinter import ttk
 
-from rsa import verify
-
 class funcs:
     # To raise an exception found on https://stackoverflow.com/questions/8294618/define-a-lambda-expression-that-raises-an-exception
     scanfunc = lambda : (_ for _ in ()).throw(NotImplemented("scanfun() is not implemented!"))
