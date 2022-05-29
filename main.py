@@ -2,7 +2,6 @@ print("Starting...")
 from multiprocessing.sharedctypes import Value
 from random import randint
 from tkinter import Tk
-from turtle import back
 from selenium import webdriver
 import chromedriver_autoinstaller
 import selenium
