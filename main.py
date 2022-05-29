@@ -1,5 +1,8 @@
 print("Starting...")
+from multiprocessing.sharedctypes import Value
+from random import randint
 from tkinter import Tk
+from turtle import back
 from selenium import webdriver
 import chromedriver_autoinstaller
 import selenium
@@ -16,7 +19,7 @@ print("Detecting os and setting variables...")
 import platform
 import os
 
-from gui import getLogin, funcs, MainApp, messagebox
+from gui import getLogin, funcs, MainApp, messagebox, Values
 
 system = platform.system()
 
@@ -84,6 +87,23 @@ print(f"Password: {'*' * len(password)}")
 print("Logging in to education perfect...")
 driver.get("https://app.educationperfect.com/app/login")
 
+w = Tk()
+w.withdraw()
+originalPos = driver.get_window_position()
+width = w.winfo_screenwidth()
+
+def hideWin():
+    return
+    global originalPos
+    originalPos = driver.get_window_position()
+    driver.set_window_position(width + 100, 0)
+
+def showWin():
+    return
+    driver.set_window_position(originalPos["x"], originalPos["y"])
+
+hideWin()
+
 # Wait for it to load
 
 print("Trying to login...")
@@ -116,10 +136,7 @@ while True:
         if s == " " or s == "":
             continue
         print(f"Login failed! Exiting...")
-        w = Tk()
-        w.withdraw()
         messagebox.showerror(title="Login failed", message=f"{s}, Exiting...")
-        driver.close()
         onexit()
 
     except Exception:
@@ -129,10 +146,28 @@ while True:
         saveDat(email, password)
         break
 
-def ScanWords():
-    print("Scannign words......")
+wordlist = {} # other lang : English
+wordlist_reversed = {} # English : other lang
 
-    wordlist = {} # English : other lang
+showWin()
+
+def verifyOnTask():
+    try:
+        if checkElementExists("#full-list-switcher"):
+            print("Switching to full list...")
+
+            switchbutton = driver.find_element(by=By.CSS_SELECTOR, value="#full-list-switcher")
+            switchbutton.click()
+        
+        startbutton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
+        return True
+    except Exception:
+        return False
+    
+
+def ScanWords():
+    global wordlist, wordlist_reversed
+    print("Scannign words......")
 
     if checkElementExists("#full-list-switcher"):
         print("Switching to full list...")
@@ -161,27 +196,114 @@ def ScanWords():
         foreign = words[0].text
         eng = eng.replace(";", ",")
         foreign = foreign.replace(";", ",")
-        wordlist[eng] = foreign
+        wordlist[foreign] = eng
+        wordlist_reversed[eng] = foreign
     
     print("Done! Going back...")
     backbutton = driver.find_element(by=By.CSS_SELECTOR, value="#__single_spa_angular_1 > student-app-wrapper > div.main-content.v-group > div.nav-bar-dashboard.tight.ep-nav-bar.ng-isolate-scope > div > div > div.back-action.h-group.nav-bar-button.v-align-center.ng-scope")
     backbutton.click()
 
+def quitTask():
+    backButton = driver.find_element(by=By.CSS_SELECTOR, value="#action-bar > div > div.start > button")
+    backButton.click()
+
 def doReading():
+    global wordlist
     print("Doing reading...")
+    try:
+        taskbutton = driver.find_element(by=By.CSS_SELECTOR, value="#learning-mode-selector > li.item.h-group.v-align-center.mode-0")
+    except Exception:
+        try:
+            taskbutton = driver.find_element(by=By.CSS_SELECTOR, value="#learning-mode-selector > li.item.h-group.v-align-center.mode-0.selected")
+        except Exception as e:
+            messagebox.showerror(title="Fatal Error", message=f"An Error Occured, Error: \n" + str(e))
+            # TODO: Report fatal error to server
+            onexit()
     
+    taskbutton.click()
+    startbutton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
+    startbutton.click()
+
+    while True:
+        if Values.running == False:
+            sleep(0.2)
+            continue
+        
+        try:
+            wordElement = driver.find_element(by=By.CSS_SELECTOR, value="#question-text")
+            inputElement = driver.find_element(by=By.XPATH, value="/html/body/div[2]/main[3]/div/student-app-wrapper/div[1]/div[2]/div/ui-view/div[1]/div[2]/div/div/div[2]/div[2]/game-lp-answer-input/div/div[2]/input")
+            submitElement = driver.find_element(by=By.CSS_SELECTOR, value="#submit-button")
+        except Exception as e:
+            try:
+                finishButton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
+                showWin()
+            except Exception as e:
+                print("User on unknown page!")
+                messagebox.showerror(title="Fatal Error", message=f"An Error Occured, Error: \n" + str(e))
+                # TODO: Report fatal error to server
+                onexit()
+
+        # print(wordElement.text)
+
+        makemistake = False
+
+        question = wordElement.text
+
+        if randint(1, Values.error_rate) == 1:
+            makemistake = True
+
+        if question in wordlist and not makemistake:
+            # print(wordlist)
+            ans = wordlist[question]
+            ans = ans.split(",")[0]
+            for character in ans:
+                inputElement.send_keys(character)
+                sleep(Values.typing_speed)
+
+            submitElement.click()
+        else:
+            # Learn the word
+            print("Unknown word " + question + " learning...")
+            inputElement.send_keys("?")
+            sleep(0.2)
+            submitElement.click()
+            sleep(0.5)
+            if not makemistake:
+                correctansField = driver.find_element(by=By.CSS_SELECTOR, value="#correct-answer-field")
+                wordlist[question] = correctansField.text
+                # print(correctansField.text)
+            skipButton = driver.find_element(by=By.CSS_SELECTOR, value="#viewport > div.modal.lp-hint-dialog.center-modal.fade.ng-scope.ng-isolate-scope.in > div > div > div.modal-footer.ng-scope > button")
+            sleep(0.5)
+            skipButton.click()
+
+        sleep(Values.rest_in_between_questions)
 
 def doWriting():
     print("Doing writing...")
+    try:
+        taskbutton = driver.find_element(by=By.CSS_SELECTOR, value="#learning-mode-selector > li.item.h-group.v-align-center.mode-1")
+    except Exception:
+        try:
+            taskbutton = driver.find_element(by=By.CSS_SELECTOR, value="#learning-mode-selector > li.item.h-group.v-align-center.mode-1.selected")
+        except Exception as e:
+            messagebox.showerror(title="Fatal Error", message=f"{s}, An Error Occured, Error: \n" + str(e))
+            # TODO: Report fatal error to server
+            onexit()
+    
+    taskbutton.click()
+    startbutton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
+    startbutton.click()
+    
 
 funcs.scanfunc = ScanWords
 funcs.readingfunc = doReading
 funcs.writingfunc = doWriting
+funcs.hidewindow = hideWin
+funcs.showwindow = showWin
+funcs.verifyontask = verifyOnTask
+funcs.stoptask = quitTask
 
 app = MainApp(exitfunc=onexit)
 
 print("Starting mainloop...")
-while True:
-    sleep(10)
-
-driver.close()
+w.mainloop()

@@ -4,12 +4,24 @@ from tkinter import Tk, Button, Label, Entry
 from tkinter import messagebox
 from tkinter import ttk
 
+from rsa import verify
+
 class funcs:
     # To raise an exception found on https://stackoverflow.com/questions/8294618/define-a-lambda-expression-that-raises-an-exception
     scanfunc = lambda : (_ for _ in ()).throw(NotImplemented("scanfun() is not implemented!"))
     exitfunc = lambda : (_ for _ in ()).throw(NotImplemented("exitfunc() is not implemented!"))
     readingfunc = lambda : (_ for _ in ()).throw(NotImplemented("readingfunc() is not implemented!"))
     writingfunc = lambda : (_ for _ in ()).throw(NotImplemented("writingfunc() is not implemented!"))
+    hidewindow = lambda : (_ for _ in ()).throw(NotImplemented("hidewindow() is not implemented!"))
+    showwindow = lambda : (_ for _ in ()).throw(NotImplemented("showwindow() is not implemented!"))
+    verifyontask = lambda : (_ for _ in ()).throw(NotImplemented("showwindow() is not implemented!"))
+    stoptask = lambda : (_ for _ in ()).throw(NotImplemented("stoptask() is not implemented!"))
+
+class Values:
+    running = False
+    typing_speed = 0.2 # Seconds delay between characters
+    error_rate = 10 # 1 in {error_rate} chance the program will take hint on purpous
+    rest_in_between_questions = 1 # Don't set below 1 or program might break
 
 def getLogin():
     window = Tk()
@@ -116,14 +128,32 @@ class ChoosePage(tkinter.Frame):
   
         button1 = ttk.Button(self, text ="Scan",
         command = self.ScanFunc)
+        button2 = ttk.Button(self, text ="Skip",
+        command = self.skip)
 
         # putting the button in its place by
         # using grid
         button1.place(y=110, x=10)
+        button2.place(y=140, x=10)
 
     def ScanFunc(self):
+        if not funcs.verifyontask():
+            w = Tk()
+            w.withdraw()
+            messagebox.showerror(title="Error", message=f"User not on task page!")
+            return
         funcs.scanfunc()
         self.controller.show_frame(MainPage)
+        funcs.hidewindow()
+    
+    def skip(self):
+        if not funcs.verifyontask():
+            w = Tk()
+            w.withdraw()
+            messagebox.showerror(title="Error", message=f"User not on task page!")
+            return
+        self.controller.show_frame(MainPage)
+        funcs.hidewindow()
 
 # second window frame page1
 class MainPage(tkinter.Frame):
@@ -131,9 +161,9 @@ class MainPage(tkinter.Frame):
     def __init__(self, parent, controller):
          
         tkinter.Frame.__init__(self, parent)
-        label = ttk.Label(self, text ="Education Perfect Bot\n     Control panel", font = LARGEFONT)
+        label = ttk.Label(self, text ="Education Perfect Bot\n     Mode Selection", font = LARGEFONT)
         label.grid(row = 0, column = 4, padx = 10, pady = 10)
-  
+        self.controller = controller
         # button to show frame 2 with text
         # layout2
         button1 = ttk.Button(self, text ="Reading",
@@ -153,10 +183,52 @@ class MainPage(tkinter.Frame):
         button2.grid(row = 2, column = 1, padx = 10, pady = 10)
 
     def reading(self):
-        funcs.readingfunc()
+        self.controller.show_frame(ControlPanel)
+        t = threading.Thread(target=funcs.readingfunc)
+        t.start()
 
     def writing(self):
-        funcs.writingfunc()
+        self.controller.show_frame(ControlPanel)
+        t = threading.Thread(target=funcs.writingfunc)
+        t.start()
+
+class ControlPanel(tkinter.Frame):
+     
+    def __init__(self, parent, controller):
+         
+        tkinter.Frame.__init__(self, parent)
+        label = ttk.Label(self, text ="Education Perfect Bot\n     Control panel", font = LARGEFONT)
+        label.place(x = 107, y=10)
+
+        self.label2 = ttk.Label(self, text ="Paused", font = font2)
+        self.label2.place(x=100, y=100)
+        # button to show frame 2 with text
+        # layout2
+        self.button1 = ttk.Button(self, text ="Start",
+                            command = self.togglestart)
+
+        self.button2 = ttk.Button(self, text ="Quit",
+                            command = self.quit)
+
+        self.button1.place(x=10, y=100)
+
+        self.button2.place(x=10, y=120)
+        self.paused = True
+
+    def togglestart(self):
+        self.paused = not self.paused
+        Values.running = not self.paused
+        if self.paused:
+            self.button1.config(text="Start")
+            self.label2.config(text="Paused")            
+        else:
+            self.button1.config(text="Pause")
+            self.label2.config(text="Running...")
+    
+    def quit(self):
+        funcs.stoptask()
+        self.paused = True
+        Values.running = False
 
 import sys
 
@@ -184,7 +256,7 @@ class MainApp(threading.Thread):
 
         self.frames = {} 
 
-        for F in (MainPage, ChoosePage):
+        for F in (ControlPanel, MainPage, ChoosePage):
   
             frame = F(container, self)
   

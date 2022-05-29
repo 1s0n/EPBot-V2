@@ -1,0 +1,7 @@
+executor:
+
+handshake with server...
+executor sends product key
+executer hash itself and send hash to server
+server gives encryption key
+decrypt and run
