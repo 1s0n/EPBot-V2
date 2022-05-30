@@ -57,10 +57,9 @@ password_selector = "#login-password"
 login_button_selector = "#login-submit-button"
 login_error_selector = "#content > div.ivu-card.ivu-card-dis-hover.ivu-card-shadow > div > div.inner-login-form.v-group.h-align-center > form > div.v-group.v-align-center > p"
 
-if datapath == "LINUX":
-
-print("Verifying chromedriver/autoinstalling chromedriver...")
-chromedriver_autoinstaller.install(path=datapath)
+if not datapath == "LINUX":
+    print("Verifying chromedriver/autoinstalling chromedriver...")
+    chromedriver_autoinstaller.install(path=datapath)
 
 
 driver = webdriver.Chrome()
@@ -209,6 +208,8 @@ def ScanWords():
 def quitTask():
     backButton = driver.find_element(by=By.CSS_SELECTOR, value="#action-bar > div > div.start > button")
     backButton.click()
+    backButton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
+    backButton.click()
 
 def doReading():
     global wordlist
@@ -296,6 +297,60 @@ def doWriting():
     taskbutton.click()
     startbutton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
     startbutton.click()
+
+    while True:
+        if Values.running == False:
+            sleep(0.2)
+            continue
+        
+        try:
+            wordElement = driver.find_element(by=By.CSS_SELECTOR, value="#question-text")
+            inputElement = driver.find_element(by=By.XPATH, value="/html/body/div[2]/main[3]/div/student-app-wrapper/div[1]/div[2]/div/ui-view/div[1]/div[2]/div/div/div[2]/div[2]/game-lp-answer-input/div/div[2]/input")
+            submitElement = driver.find_element(by=By.CSS_SELECTOR, value="#submit-button")
+        except Exception as e:
+            try:
+                finishButton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
+                showWin()
+            except Exception as e:
+                print("User on unknown page!")
+                messagebox.showerror(title="Fatal Error", message=f"An Error Occured, Error: \n" + str(e))
+                # TODO: Report fatal error to server
+                onexit()
+
+        # print(wordElement.text)
+
+        makemistake = False
+
+        question = wordElement.text
+
+        if randint(1, Values.error_rate) == 1:
+            makemistake = True
+
+        if question in wordlist_reversed and not makemistake:
+            # print(wordlist)
+            ans = wordlist_reversed[question]
+            ans = ans.split(",")[0]
+            for character in ans:
+                inputElement.send_keys(character)
+                sleep(Values.typing_speed)
+
+            submitElement.click()
+        else:
+            # Learn the word
+            print("Unknown word " + question + " learning...")
+            inputElement.send_keys("?")
+            sleep(0.2)
+            submitElement.click()
+            sleep(0.5)
+            if not makemistake:
+                correctansField = driver.find_element(by=By.CSS_SELECTOR, value="#correct-answer-field")
+                wordlist_reversed[question] = correctansField.text
+                # print(correctansField.text)
+            skipButton = driver.find_element(by=By.CSS_SELECTOR, value="#viewport > div.modal.lp-hint-dialog.center-modal.fade.ng-scope.ng-isolate-scope.in > div > div > div.modal-footer.ng-scope > button")
+            sleep(0.5)
+            skipButton.click()
+
+        sleep(Values.rest_in_between_questions)
     
 
 funcs.scanfunc = ScanWords
