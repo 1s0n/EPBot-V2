@@ -1,4 +1,66 @@
+print("Connecting to MainServer...")
+import os
 import socket
+
+debugMode = True
+
+if not os.path.basename(__file__) == "main.py":
+    debugMode = False
+
+
+if debugMode:
+    s = socket.socket()
+    s.connect(("127.0.0.1", 1234))
+else:
+    socks.setdefaultproxy(socks.PROXY_TYPE_SOCKS5, "127.0.0.1", 9050, True)
+    s = socks.socksocket()
+    s.connect(('3g2upl4pq6kufc4m.onion', 80))
+
+print("Setting up encryption stuff...")
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+def decodePublicKey(pem):
+    public_key = serialization.load_pem_public_key(
+        pem,
+        backend=default_backend()
+    )
+    return public_key
+
+def encrypt(message, public_key):
+    encrypted = public_key.encrypt(
+        message,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+
+    return encrypted
+
+def decrypt(encrypted, private_key):
+    original_message = private_key.decrypt(
+        encrypted,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+    )
+    
+    return original_message
+
+enc_key = os.urandom(32)
+iv = os.urandom(16)
+cipher = Cipher(algorithms.AES(enc_key), modes.CBC(iv))
+encryptor = cipher.encryptor()
+
+import base64
 
 
 
@@ -20,7 +82,6 @@ import base64
 
 print("Detecting os and setting variables...")
 import platform
-import os
 
 from gui import getLogin, funcs, MainApp, messagebox, Values
 

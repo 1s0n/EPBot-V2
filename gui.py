@@ -210,8 +210,17 @@ class ControlPanel(tkinter.Frame):
 
         self.button1.place(x=10, y=100)
 
-        self.button2.place(x=10, y=120)
+        self.button2.place(x=10, y=140)
         self.paused = True
+
+        slider = ttk.Scale(
+            self,
+            from_=0,
+            to=100,
+            orient='horizontal',  # horizontal
+        )
+
+        slider.place(x=10, y=180)
 
     def togglestart(self):
         self.paused = not self.paused
@@ -286,11 +295,17 @@ def faker():
 def fakew():
     print("Doing writing...")
 
+def donothing():
+    pass
+
+def returnTrue():
+    return True
 
 if __name__ == "__main__":
     funcs.scanfunc = fakescan
     funcs.readingfunc = faker
     funcs.writingfunc = fakew
+    funcs.verifyontask = returnTrue
 
     app = MainApp(exitfunc=onexit)
 
