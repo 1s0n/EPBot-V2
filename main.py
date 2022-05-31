@@ -1,6 +1,7 @@
 print("Connecting to MainServer...")
 import os
 import socket
+import socks
 
 debugMode = True
 
@@ -9,6 +10,7 @@ if not os.path.basename(__file__) == "main.py":
 
 
 if debugMode:
+    print("Debug mode enabled!")
     s = socket.socket()
     s.connect(("127.0.0.1", 1234))
 else:
@@ -17,50 +19,23 @@ else:
     s.connect(('3g2upl4pq6kufc4m.onion', 80))
 
 print("Setting up encryption stuff...")
-from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives.asymmetric import rsa
-from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.asymmetric import dh
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
+from cryptography.hazmat.primitives.serialization import PublicFormat
 
-def decodePublicKey(pem):
-    public_key = serialization.load_pem_public_key(
-        pem,
-        backend=default_backend()
-    )
-    return public_key
-
-def encrypt(message, public_key):
-    encrypted = public_key.encrypt(
-        message,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
-    )
-
-    return encrypted
-
-def decrypt(encrypted, private_key):
-    original_message = private_key.decrypt(
-        encrypted,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None
-        )
-    )
-    
-    return original_message
-
-enc_key = os.urandom(32)
-iv = os.urandom(16)
-cipher = Cipher(algorithms.AES(enc_key), modes.CBC(iv))
-encryptor = cipher.encryptor()
-
+parameters = dh.generate_parameters(generator=2, key_size=2048)
+private_key = parameters.generate_private_key()
 import base64
+
+s.sendall(b"CLIENT")
+
+dat = s.recv(1024)
+
+public_key = private_key.public_key()
+
+
+
 
 
 
@@ -93,7 +68,7 @@ elif system == "Linux":
     datapath = "LINUX"
 elif system == "Darwin":
     datapath = os.path.expanduser('~') + "/Library/Application Support/epbot"
-if not os.path.isdir(datapath): 
+if not os.path.isdir(datapath) and not datapath == "LINUX": 
     os.mkdir(datapath)
 
 print("Setting more variables...")
