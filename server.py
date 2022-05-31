@@ -45,7 +45,9 @@ def decrypt(encrypted, private_key):
     return original_message
 
 
-def HandleReq():
+def HandleReq(conn, addr):
+    print(addr)
+    method = conn.recv()
     print("Beginning encryption handshake...")
     verifytoken = secrets.token_hex(16)
     print("Verification token: " + verifytoken)
