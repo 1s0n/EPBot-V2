@@ -110,7 +110,7 @@ LARGEFONT = ("Verdana", 20)
 font2 = ("Verdana", 12)
 class ChoosePage(tkinter.Frame):
     def __init__(self, parent, controller):
-        tkinter.Frame.__init__(self, parent, width=500)
+        tkinter.Frame.__init__(self, parent, width=500, height=1000)
         
         self.controller = controller
 
@@ -118,7 +118,7 @@ class ChoosePage(tkinter.Frame):
         label = ttk.Label(self, text ="Go to the page with the vocab list\nand click scan", font = LARGEFONT)
         label.place(x=5, y=10)
 
-        label2 = ttk.Label(self, text ="Note: This only works with tasks with vocab lists.", font = font2)
+        label2 = ttk.Label(self, text ="Note: This only works with tasks with vocab lists.\nAlso: If the scan button doesn't work just click skip!\nThe words will be learnt automatically", font = font2)
         label2.place(x=5, y=80)
         # putting the grid in its place by using
         # grid
@@ -131,8 +131,8 @@ class ChoosePage(tkinter.Frame):
 
         # putting the button in its place by
         # using grid
-        button1.place(y=110, x=10)
-        button2.place(y=140, x=10)
+        button1.place(y=160, x=10)
+        button2.place(y=200, x=10)
 
     def ScanFunc(self):
         if not funcs.verifyontask():
@@ -178,7 +178,7 @@ class MainPage(tkinter.Frame):
      
         # putting the button in its place by
         # using grid
-        button2.grid(row = 2, column = 1, padx = 10, pady = 10)
+        #button2.grid(row = 2, column = 1, padx = 10, pady = 10)
 
     def reading(self):
         self.controller.show_frame(ControlPanel)
@@ -197,7 +197,7 @@ class ControlPanel(tkinter.Frame):
         tkinter.Frame.__init__(self, parent)
         label = ttk.Label(self, text ="Education Perfect Bot\n     Control panel", font = LARGEFONT)
         label.place(x = 107, y=10)
-
+        lab = ttk.Label(self, text="")
         self.label2 = ttk.Label(self, text ="Paused", font = font2)
         self.label2.place(x=100, y=100)
         # button to show frame 2 with text
@@ -213,14 +213,22 @@ class ControlPanel(tkinter.Frame):
         self.button2.place(x=10, y=140)
         self.paused = True
 
-        slider = ttk.Scale(
+        TypingLab = ttk.Label(self, text="Typing speed: ")
+        TypingLab.place(x=10, y=170)
+        self.Typingslider = tkinter.Scale(
             self,
-            from_=0,
-            to=100,
+            from_=0.05,
+            to=1,
             orient='horizontal',  # horizontal
         )
 
-        slider.place(x=10, y=180)
+        self.Typingslider.configure(resolution=0.05, length=200)
+        self.Typingslider.place(x=10, y=190)
+
+
+        self.Typingslider.configure(state = "normal" if self.paused else "disabled")
+
+
 
     def togglestart(self):
         self.paused = not self.paused
@@ -229,9 +237,17 @@ class ControlPanel(tkinter.Frame):
             self.button1.config(text="Start")
             self.label2.config(text="Paused")            
         else:
+            self.saveConfigs()
             self.button1.config(text="Pause")
             self.label2.config(text="Running...")
+            
+        self.updateConfigs()
     
+    def updateConfigs(self):
+        self.Typingslider.configure(state = "normal" if self.paused else "disabled")
+
+    def saveConfigs(self):
+        Values.typing_speed = self.Typingslider.get()
     def quit(self):
         funcs.stoptask()
         self.paused = True

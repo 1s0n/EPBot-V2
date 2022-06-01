@@ -9,40 +9,6 @@ if not os.path.basename(__file__) == "main.py":
     debugMode = False
 
 
-if debugMode:
-    print("Debug mode enabled!")
-    s = socket.socket()
-    s.connect(("127.0.0.1", 1234))
-else:
-    socks.setdefaultproxy(socks.PROXY_TYPE_SOCKS5, "127.0.0.1", 9050, True)
-    s = socks.socksocket()
-    s.connect(('3g2upl4pq6kufc4m.onion', 80))
-
-print("Setting up encryption stuff...")
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import dh
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives.serialization import PublicFormat
-from cryptography.hazmat.primitives import serialization
-
-parameters = dh.generate_parameters(generator=2, key_size=2048)
-private_key = parameters.generate_private_key()
-import base64
-
-s.sendall(b"CLIENT")
-
-dat = s.recv(1024)
-
-serverPublic = serialization.load_pem_private_key(dat)
-shared_key = server_private_key.exchange(serverPublic)
-print("Got Shared Key! Sending public key...")
-
-public_key = private_key.public_key()
-
-public_pem = public_key.public_bytes(encoding=Encoding.PEM, format=PublicFormat.SubjectPublicKeyInfo)
-
-s.sendall(public_pem)
-
 
 print("Starting...")
 from multiprocessing.sharedctypes import Value
@@ -408,5 +374,5 @@ funcs.stoptask = quitTask
 
 app = MainApp(exitfunc=onexit)
 
-print("Starting mainloop...")
+driver.execute_script("window.onblur = function() { window.onfocus() }")
 w.mainloop()
