@@ -23,6 +23,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import dh
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.serialization import PublicFormat
+from cryptography.hazmat.primitives import serialization
 
 parameters = dh.generate_parameters(generator=2, key_size=2048)
 private_key = parameters.generate_private_key()
@@ -32,11 +33,15 @@ s.sendall(b"CLIENT")
 
 dat = s.recv(1024)
 
+serverPublic = serialization.load_pem_private_key(dat)
+shared_key = server_private_key.exchange(serverPublic)
+print("Got Shared Key! Sending public key...")
+
 public_key = private_key.public_key()
 
+public_pem = public_key.public_bytes(encoding=Encoding.PEM, format=PublicFormat.SubjectPublicKeyInfo)
 
-
-
+s.sendall(public_pem)
 
 
 print("Starting...")
