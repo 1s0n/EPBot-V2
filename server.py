@@ -19,6 +19,33 @@ public_key = private_key.public_key()
 
 public_pem = public_key.public_bytes(encoding=Encoding.PEM, format=PublicFormat.SubjectPublicKeyInfo)
 
+import os
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+
+iv = None
+cipher = None
+encryptor = None
+
+def encrypt(msg):
+    global iv, cipher, encryptor
+    iv = os.urandom(16)
+    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+    encryptor = cipher.encryptor()
+    ct = encryptor.update(msg) + encryptor.finalize()
+    return ct
+
+def sendenc(conn, msg, key):
+    derived_key = HKDF(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=None,
+        info=msg,
+    ).derive(key)
+    conn.sendall(derived_key)
+
+def decrypt(msg, key):
+
+
 def HandleReq(conn, addr):
     header = conn.recv(1024).decode()
     header.replace("\r", "")
@@ -33,6 +60,17 @@ def HandleReq(conn, addr):
         print("Beginning encryption handshake...")
         
         conn.sendall(public_pem)
+
+        print("Reciving public pem...")
+        pemdat = conn.recv(1024)
+        clientPubic = serialization.load_pem_private_key(pemdat)
+        shared_key = server_private_key.exchange(serverPublic)
+        print("Shared Key recived!")
+        print("Verifying shared key...")
+        sendenc(conn, secrets.token_hex(16), shared_key)
+
+        print("Handshake complete!")
+        
         
 s.listen()
 
