@@ -19,14 +19,8 @@ parameters = serialization.load_pem_parameters(_parampem)
 
 print("Loading license keys...")
 
-licensedat = ""
-
-with open("LicKey.json") as f:
-    licensedat = f.read()
-    f.close()
 
 import json
-licenses = json.loads(licensedat)
 
 import os
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
@@ -127,7 +121,11 @@ def HandleReq(conn, addr):
             conn.close()
             return
         
-        data = conn.recv(1024)
+        data = conn.recv(2048)
+        data = decrypt(data)
+        data = json.loads(data.decode())
+        print(data)
+
 
 
 

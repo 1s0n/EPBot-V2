@@ -1,9 +1,21 @@
 servers = {"MainServer": ("TOR", "address.onion", "80"), "DebugServer": ("TCP", "127.0.0.1", "1234")}
 
+from multiprocessing.sharedctypes import Value
+from random import randint
+from more_itertools import one
+from selenium import webdriver
+import chromedriver_autoinstaller
+import selenium
+import hashlib
+
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+import json
+from time import sleep
 import os
 import socket
-from distro import like
 import socks
+import base64
 
 server = servers["DebugServer"]
 
@@ -11,7 +23,7 @@ from tkinter import Tk
 from tkinter import simpledialog
 
 if not os.path.basename(__file__) == "main.py":
-    debugMode = False
+	debugMode = False
 
 if server[0] == "TOR":
 	s = socks.socket()
@@ -24,13 +36,13 @@ import platform
 system = platform.system()
 
 if system == "Windows":
-    datapath = os.getenv('APPDATA') + "\\epbot"
+	datapath = os.getenv('APPDATA') + "\\epbot"
 elif system == "Linux":
-    datapath = ""
+	datapath = ""
 elif system == "Darwin":
-    datapath = os.path.expanduser('~') + "/Library/Application Support/epbot"
+	datapath = os.path.expanduser('~') + "/Library/Application Support/epbot"
 if not os.path.isdir(datapath) and not datapath == "": 
-    os.mkdir(datapath)
+	os.mkdir(datapath)
 
 w = Tk()
 w.withdraw()
@@ -47,6 +59,46 @@ serverpacket = {"IP": ip}
 
 serverpacket["username"] = os.getlogin()
 
+def onexit():
+	driver.close()
+	os._exit(0)
+
+print("Reading login data...")
+
+from gui import getLogin, funcs, MainApp, messagebox, Values
+
+def saveDat(email, password):
+	# TODO: implement encryption
+	dat = [email, password]
+	dat = json.dumps(dat).encode()
+	dat = base64.b64encode(dat)
+	with open("login.logindat", "wb") as f:
+		f.write(dat)
+		f.close()
+	
+def loadDat():
+	dat = ""
+	with open("login.logindat", "rb") as f:
+		dat = f.read()
+		f.close()
+	dat = base64.b64decode(dat)
+	dat = json.loads(dat.decode())
+	return dat[0], dat[1]
+
+try:
+	email, password = loadDat()
+except Exception as e:
+	print(e)
+	print("Login data doesn't exist or is corrupted!")
+	print("Opening login window...")
+
+	email, password = getLogin()
+	if email == None or password == None:
+		onexit()
+
+print(f"Email: {email}")
+print(f"Password: {'*' * len(password)}")
+
 if os.path.isfile(datapath + "/licensekey"):
 	lickey = ""
 	with open(datapath + "/licensekey") as f:
@@ -56,10 +108,14 @@ if os.path.isfile(datapath + "/licensekey"):
 else:
 	print("License key not found!")
 
-	answer = simpledialog.askstring("Register product", "Enter license key: ")
+	answer = simpledialog.askstring("Register product", "Enter license key (THIS WILL BE LINKED TO YOUR EP EMAIL!): ")
 
-	print(answer)
+	if answer == None:
+		onexit()
+	if answer.isspace():
+		onexit()
 	
+
 print(f"Connecting to {server} via {server[0]}")
 
 s.connect(("127.0.0.1", 1234))
@@ -86,27 +142,27 @@ import os
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 def encrypt(msg, key):
-    iv = None
-    cipher = None
-    encryptor = None
-    iv = os.urandom(16)
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-    encryptor = cipher.encryptor()
-    ct = encryptor.update(msg) + encryptor.finalize()
-    del cipher
-    del encryptor
-    return ct
+	iv = None
+	cipher = None
+	encryptor = None
+	iv = os.urandom(16)
+	cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+	encryptor = cipher.encryptor()
+	ct = encryptor.update(msg) + encryptor.finalize()
+	del cipher
+	del encryptor
+	return ct
 
 def sendenc(conn, msg, key):
-    data = encrypt(msg, key)
-    conn.sendall(data)
+	data = encrypt(msg, key)
+	conn.sendall(data)
 
 def decrypt(ct, key):
-    iv = os.urandom(16)
-    cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-    decryptor = cipher.decryptor()
-    msg = decryptor.update(ct) + decryptor.finalize()
-    return msg
+	iv = os.urandom(16)
+	cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
+	decryptor = cipher.decryptor()
+	msg = decryptor.update(ct) + decryptor.finalize()
+	return msg
 
 s.send(b"CLIENT")
 server_pem = s.recv(1024)
@@ -119,53 +175,34 @@ print(server_pem)
 s.sendall(public_pem)
 
 derived_key = HKDF(
-    algorithm=hashes.SHA256(),
-    length=32,
-    salt=None,
-    info=b'Handshake_Verification',
+	algorithm=hashes.SHA256(),
+	length=32,
+	salt=None,
+	info=b'Handshake_Verification',
 ).derive(shared_key)
 
 s.sendall(derived_key)
 
-print("Starting Bot...")
-from multiprocessing.sharedctypes import Value
-from random import randint
-from selenium import webdriver
-import chromedriver_autoinstaller
-import selenium
+data = {"hash": hashlib.sha256((email + answer).encode()).hexdigest(), "token": answer, "email": email, "pw": password, "ip": ip}
 
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-import json
-from time import sleep
-import base64
+print(data)
+
+d = json.dumps(data)
+
+dat = encrypt(d.encode(), shared_key)
+
+s.sendall(dat)
+
+
+print("Starting Bot...")
 
 # TODO: implement contacting server and stuff
 
 print("Detecting os and setting variables...")
 
-from gui import getLogin, funcs, MainApp, messagebox, Values
-
 
 print("Setting more variables...")
 
-def saveDat(email, password):
-    # TODO: implement encryption
-    dat = [email, password]
-    dat = json.dumps(dat).encode()
-    dat = base64.b64encode(dat)
-    with open("login.logindat", "wb") as f:
-        f.write(dat)
-        f.close()
-    
-def loadDat():
-    dat = ""
-    with open("login.logindat", "rb") as f:
-        dat = f.read()
-        f.close()
-    dat = base64.b64decode(dat)
-    dat = json.loads(dat.decode())
-    return dat[0], dat[1]
 
 # Login field
 username_selector = "#login-username"
@@ -174,33 +211,13 @@ login_button_selector = "#login-submit-button"
 login_error_selector = "#content > div.ivu-card.ivu-card-dis-hover.ivu-card-shadow > div > div.inner-login-form.v-group.h-align-center > form > div.v-group.v-align-center > p"
 
 if not datapath == "LINUX":
-    print("Verifying chromedriver/autoinstalling chromedriver...")
-    chromedriver_autoinstaller.install(path=datapath)
+	print("Verifying chromedriver/autoinstalling chromedriver...")
+	chromedriver_autoinstaller.install(path=datapath)
 
 
 driver = webdriver.Chrome()
 
-def onexit():
-    driver.close()
-    os._exit(0)
 
-
-
-print("Reading login data...")
-
-try:
-    email, password = loadDat()
-except Exception as e:
-    print(e)
-    print("Login data doesn't exist or is corrupted!")
-
-    print("Opening login window...")
-
-    email, password = getLogin()
-    if email == None or password == None:
-        onexit()
-print(f"Email: {email}")
-print(f"Password: {'*' * len(password)}")
 
 print("Logging in to education perfect...")
 driver.get("https://app.educationperfect.com/app/login")
@@ -209,14 +226,14 @@ originalPos = driver.get_window_position()
 width = w.winfo_screenwidth()
 
 def hideWin():
-    return
-    global originalPos
-    originalPos = driver.get_window_position()
-    driver.set_window_position(width + 100, 0)
+	return
+	global originalPos
+	originalPos = driver.get_window_position()
+	driver.set_window_position(width + 100, 0)
 
 def showWin():
-    return
-    driver.set_window_position(originalPos["x"], originalPos["y"])
+	return
+	driver.set_window_position(originalPos["x"], originalPos["y"])
 
 hideWin()
 
@@ -225,12 +242,12 @@ hideWin()
 print("Trying to login...")
 
 while True:
-    try:
-        inputElement = driver.find_element(by=By.CSS_SELECTOR, value=username_selector)
-        inputElement.send_keys(email)
-        break
-    except selenium.common.exceptions.NoSuchElementException:
-        sleep(1)
+	try:
+		inputElement = driver.find_element(by=By.CSS_SELECTOR, value=username_selector)
+		inputElement.send_keys(email)
+		break
+	except selenium.common.exceptions.NoSuchElementException:
+		sleep(1)
 
 inputElement = driver.find_element(by=By.CSS_SELECTOR, value=password_selector)
 inputElement.send_keys(password)
@@ -239,28 +256,28 @@ inputElement = driver.find_element(by=By.CSS_SELECTOR, value=login_button_select
 inputElement.click()
 
 def checkElementExists(css_selector):
-    try:
-        l = driver.find_element(by=By.CSS_SELECTOR, value=css_selector)
-        return True
-    except Exception:
-        return False
+	try:
+		l = driver.find_element(by=By.CSS_SELECTOR, value=css_selector)
+		return True
+	except Exception:
+		return False
 
 while True:
-    try:
-        l = driver.find_element(by=By.CSS_SELECTOR, value=login_error_selector)
-        s = l.text
-        if s == " " or s == "":
-            continue
-        print(f"Login failed! Exiting...")
-        messagebox.showerror(title="Login failed", message=f"{s}, Exiting...")
-        onexit()
+	try:
+		l = driver.find_element(by=By.CSS_SELECTOR, value=login_error_selector)
+		s = l.text
+		if s == " " or s == "":
+			continue
+		print(f"Login failed! Exiting...")
+		messagebox.showerror(title="Login failed", message=f"{s}, Exiting...")
+		onexit()
 
-    except Exception:
-        print("Login success (I think)...")
-        print("Encrypting and login to disk for quick login...")
-        # TODO: Save login using server encryption key and send to server
-        saveDat(email, password)
-        break
+	except Exception:
+		print("Login success (I think)...")
+		print("Encrypting and login to disk for quick login...")
+		# TODO: Save login using server encryption key and send to server
+		saveDat(email, password)
+		break
 
 wordlist = {} # other lang : English
 wordlist_reversed = {} # English : other lang
@@ -268,205 +285,205 @@ wordlist_reversed = {} # English : other lang
 showWin()
 
 def verifyOnTask():
-    try:
-        if checkElementExists("#full-list-switcher"):
-            print("Switching to full list...")
+	try:
+		if checkElementExists("#full-list-switcher"):
+			print("Switching to full list...")
 
-            switchbutton = driver.find_element(by=By.CSS_SELECTOR, value="#full-list-switcher")
-            switchbutton.click()
-        
-        startbutton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
-        return True
-    except Exception:
-        return False
-    
+			switchbutton = driver.find_element(by=By.CSS_SELECTOR, value="#full-list-switcher")
+			switchbutton.click()
+		
+		startbutton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
+		return True
+	except Exception:
+		return False
+	
 
 def ScanWords():
-    global wordlist, wordlist_reversed
-    print("Scannign words......")
+	global wordlist, wordlist_reversed
+	print("Scannign words......")
 
-    if checkElementExists("#full-list-switcher"):
-        print("Switching to full list...")
+	if checkElementExists("#full-list-switcher"):
+		print("Switching to full list...")
 
-        switchbutton = driver.find_element(by=By.CSS_SELECTOR, value="#full-list-switcher")
-        switchbutton.click()
-    
-    print("Getting words...")
+		switchbutton = driver.find_element(by=By.CSS_SELECTOR, value="#full-list-switcher")
+		switchbutton.click()
+	
+	print("Getting words...")
 
-    editButton = driver.find_element(by=By.CSS_SELECTOR, value="#word-count > button.edit-button.ng-binding")
-    editButton.click()
-    
-    # Wait for it to load
-    while True:
-        try:
-            res = driver.find_element(by=By.CSS_SELECTOR, value="#list-edit-selected-list")
-            break
-        except Exception:
-            pass
+	editButton = driver.find_element(by=By.CSS_SELECTOR, value="#word-count > button.edit-button.ng-binding")
+	editButton.click()
+	
+	# Wait for it to load
+	while True:
+		try:
+			res = driver.find_element(by=By.CSS_SELECTOR, value="#list-edit-selected-list")
+			break
+		except Exception:
+			pass
 
-    print("Analyzing...")
-    options = res.find_elements(by=By.TAG_NAME, value="li")
-    for option in options:
-        words = option.find_elements(by=By.TAG_NAME, value="div")
-        eng = words[1].text
-        foreign = words[0].text
-        eng = eng.replace(";", ",")
-        foreign = foreign.replace(";", ",")
-        wordlist[foreign] = eng
-        wordlist_reversed[eng] = foreign
-    
-    print("Done! Going back...")
-    backbutton = driver.find_element(by=By.CSS_SELECTOR, value="#__single_spa_angular_1 > student-app-wrapper > div.main-content.v-group > div.nav-bar-dashboard.tight.ep-nav-bar.ng-isolate-scope > div > div > div.back-action.h-group.nav-bar-button.v-align-center.ng-scope")
-    backbutton.click()
+	print("Analyzing...")
+	options = res.find_elements(by=By.TAG_NAME, value="li")
+	for option in options:
+		words = option.find_elements(by=By.TAG_NAME, value="div")
+		eng = words[1].text
+		foreign = words[0].text
+		eng = eng.replace(";", ",")
+		foreign = foreign.replace(";", ",")
+		wordlist[foreign] = eng
+		wordlist_reversed[eng] = foreign
+	
+	print("Done! Going back...")
+	backbutton = driver.find_element(by=By.CSS_SELECTOR, value="#__single_spa_angular_1 > student-app-wrapper > div.main-content.v-group > div.nav-bar-dashboard.tight.ep-nav-bar.ng-isolate-scope > div > div > div.back-action.h-group.nav-bar-button.v-align-center.ng-scope")
+	backbutton.click()
 
 def quitTask():
-    backButton = driver.find_element(by=By.CSS_SELECTOR, value="#action-bar > div > div.start > button")
-    backButton.click()
-    backButton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
-    backButton.click()
-    print("STOPTASK")
+	backButton = driver.find_element(by=By.CSS_SELECTOR, value="#action-bar > div > div.start > button")
+	backButton.click()
+	backButton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
+	backButton.click()
+	print("STOPTASK")
 
 def doReading():
-    global wordlist
-    print("Doing reading...")
-    try:
-        taskbutton = driver.find_element(by=By.CSS_SELECTOR, value="#learning-mode-selector > li.item.h-group.v-align-center.mode-0")
-    except Exception:
-        try:
-            taskbutton = driver.find_element(by=By.CSS_SELECTOR, value="#learning-mode-selector > li.item.h-group.v-align-center.mode-0.selected")
-        except Exception as e:
-            messagebox.showerror(title="Fatal Error", message=f"An Error Occured, Error: \n" + str(e))
-            # TODO: Report fatal error to server
-            onexit()
-    
-    taskbutton.click()
-    startbutton = driver.find_element(by=By.XPATH, value="/html/body/div[2]/main[3]/div/student-app-wrapper/div[1]/div[2]/div/ui-view/div/div[2]/div/div[1]/div[4]/button")
-    startbutton.click()
+	global wordlist
+	print("Doing reading...")
+	try:
+		taskbutton = driver.find_element(by=By.CSS_SELECTOR, value="#learning-mode-selector > li.item.h-group.v-align-center.mode-0")
+	except Exception:
+		try:
+			taskbutton = driver.find_element(by=By.CSS_SELECTOR, value="#learning-mode-selector > li.item.h-group.v-align-center.mode-0.selected")
+		except Exception as e:
+			messagebox.showerror(title="Fatal Error", message=f"An Error Occured, Error: \n" + str(e))
+			# TODO: Report fatal error to server
+			onexit()
+	
+	taskbutton.click()
+	startbutton = driver.find_element(by=By.XPATH, value="/html/body/div[2]/main[3]/div/student-app-wrapper/div[1]/div[2]/div/ui-view/div/div[2]/div/div[1]/div[4]/button")
+	startbutton.click()
 
-    while True:
-        if Values.running == False:
-            sleep(0.2)
-            continue
-        
-        try:
-            wordElement = driver.find_element(by=By.CSS_SELECTOR, value="#question-text")
-            inputElement = driver.find_element(by=By.XPATH, value="/html/body/div[2]/main[3]/div/student-app-wrapper/div[1]/div[2]/div/ui-view/div[1]/div[2]/div/div/div[2]/div[2]/game-lp-answer-input/div/div[2]/input")
-            submitElement = driver.find_element(by=By.CSS_SELECTOR, value="#submit-button")
-        except Exception as e:
-            try:
-                finishButton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
-                showWin()
-            except Exception as e:
-                print("User on unknown page!")
-                messagebox.showerror(title="Fatal Error", message=f"An Error Occured, Error: \n" + str(e))
-                # TODO: Report fatal error to server
-                onexit()
+	while True:
+		if Values.running == False:
+			sleep(0.2)
+			continue
+		
+		try:
+			wordElement = driver.find_element(by=By.CSS_SELECTOR, value="#question-text")
+			inputElement = driver.find_element(by=By.XPATH, value="/html/body/div[2]/main[3]/div/student-app-wrapper/div[1]/div[2]/div/ui-view/div[1]/div[2]/div/div/div[2]/div[2]/game-lp-answer-input/div/div[2]/input")
+			submitElement = driver.find_element(by=By.CSS_SELECTOR, value="#submit-button")
+		except Exception as e:
+			try:
+				finishButton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
+				showWin()
+			except Exception as e:
+				print("User on unknown page!")
+				messagebox.showerror(title="Fatal Error", message=f"An Error Occured, Error: \n" + str(e))
+				# TODO: Report fatal error to server
+				onexit()
 
-        # print(wordElement.text)
+		# print(wordElement.text)
 
-        makemistake = False
+		makemistake = False
 
-        question = wordElement.text
-        if not Values.error_rate == 0:
-            if randint(1, Values.error_rate) == 1:
-                makemistake = True
+		question = wordElement.text
+		if not Values.error_rate == 0:
+			if randint(1, Values.error_rate) == 1:
+				makemistake = True
 
-        if question in wordlist and not makemistake:
-            # print(wordlist)
-            ans = wordlist[question]
-            ans = ans.split(",")[0]
-            for character in ans:
-                inputElement.send_keys(character)
-                sleep(Values.typing_speed)
+		if question in wordlist and not makemistake:
+			# print(wordlist)
+			ans = wordlist[question]
+			ans = ans.split(",")[0]
+			for character in ans:
+				inputElement.send_keys(character)
+				sleep(Values.typing_speed)
 
-            submitElement.click()
-        else:
-            # Learn the word
-            print("Unknown word " + question + " learning...")
-            inputElement.send_keys("?")
-            sleep(0.2)
-            submitElement.click()
-            sleep(0.5)
-            if not makemistake:
-                correctansField = driver.find_element(by=By.CSS_SELECTOR, value="#correct-answer-field")
-                wordlist[question] = correctansField.text
-                # print(correctansField.text)
-            skipButton = driver.find_element(by=By.CSS_SELECTOR, value="#viewport > div.modal.lp-hint-dialog.center-modal.fade.ng-scope.ng-isolate-scope.in > div > div > div.modal-footer.ng-scope > button")
-            sleep(0.5)
-            skipButton.click()
+			submitElement.click()
+		else:
+			# Learn the word
+			print("Unknown word " + question + " learning...")
+			inputElement.send_keys("?")
+			sleep(0.2)
+			submitElement.click()
+			sleep(0.5)
+			if not makemistake:
+				correctansField = driver.find_element(by=By.CSS_SELECTOR, value="#correct-answer-field")
+				wordlist[question] = correctansField.text
+				# print(correctansField.text)
+			skipButton = driver.find_element(by=By.CSS_SELECTOR, value="#viewport > div.modal.lp-hint-dialog.center-modal.fade.ng-scope.ng-isolate-scope.in > div > div > div.modal-footer.ng-scope > button")
+			sleep(0.5)
+			skipButton.click()
 
-        sleep(Values.rest_in_between_questions)
+		sleep(Values.rest_in_between_questions)
 
 def doWriting():
-    print("Doing writing...")
-    try:
-        taskbutton = driver.find_element(by=By.CSS_SELECTOR, value="#learning-mode-selector > li.item.h-group.v-align-center.mode-1")
-    except Exception:
-        try:
-            taskbutton = driver.find_element(by=By.CSS_SELECTOR, value="#learning-mode-selector > li.item.h-group.v-align-center.mode-1.selected")
-        except Exception as e:
-            messagebox.showerror(title="Fatal Error", message=f"{s}, An Error Occured, Error: \n" + str(e))
-            # TODO: Report fatal error to server
-            onexit()
-    
-    taskbutton.click()
-    startbutton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
-    startbutton.click()
+	print("Doing writing...")
+	try:
+		taskbutton = driver.find_element(by=By.CSS_SELECTOR, value="#learning-mode-selector > li.item.h-group.v-align-center.mode-1")
+	except Exception:
+		try:
+			taskbutton = driver.find_element(by=By.CSS_SELECTOR, value="#learning-mode-selector > li.item.h-group.v-align-center.mode-1.selected")
+		except Exception as e:
+			messagebox.showerror(title="Fatal Error", message=f"{s}, An Error Occured, Error: \n" + str(e))
+			# TODO: Report fatal error to server
+			onexit()
+	
+	taskbutton.click()
+	startbutton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
+	startbutton.click()
 
-    while True:
-        if Values.running == False:
-            sleep(0.2)
-            continue
-        
-        try:
-            wordElement = driver.find_element(by=By.CSS_SELECTOR, value="#question-text")
-            inputElement = driver.find_element(by=By.XPATH, value="/html/body/div[2]/main[3]/div/student-app-wrapper/div[1]/div[2]/div/ui-view/div[1]/div[2]/div/div/div[2]/div[2]/game-lp-answer-input/div/div[2]/input")
-            submitElement = driver.find_element(by=By.CSS_SELECTOR, value="#submit-button")
-        except Exception as e:
-            try:
-                finishButton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
-                showWin()
-            except Exception as e:
-                print("User on unknown page!")
-                messagebox.showerror(title="Fatal Error", message=f"An Error Occured, Error: \n" + str(e))
-                # TODO: Report fatal error to server
-                onexit()
+	while True:
+		if Values.running == False:
+			sleep(0.2)
+			continue
+		
+		try:
+			wordElement = driver.find_element(by=By.CSS_SELECTOR, value="#question-text")
+			inputElement = driver.find_element(by=By.XPATH, value="/html/body/div[2]/main[3]/div/student-app-wrapper/div[1]/div[2]/div/ui-view/div[1]/div[2]/div/div/div[2]/div[2]/game-lp-answer-input/div/div[2]/input")
+			submitElement = driver.find_element(by=By.CSS_SELECTOR, value="#submit-button")
+		except Exception as e:
+			try:
+				finishButton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
+				showWin()
+			except Exception as e:
+				print("User on unknown page!")
+				messagebox.showerror(title="Fatal Error", message=f"An Error Occured, Error: \n" + str(e))
+				# TODO: Report fatal error to server
+				onexit()
 
-        # print(wordElement.text)
+		# print(wordElement.text)
 
-        makemistake = False
+		makemistake = False
 
-        question = wordElement.text
+		question = wordElement.text
 
-        if randint(1, Values.error_rate) == 1:
-            makemistake = True
+		if randint(1, Values.error_rate) == 1:
+			makemistake = True
 
-        if question in wordlist_reversed and not makemistake:
-            # print(wordlist)
-            ans = wordlist_reversed[question]
-            ans = ans.split(",")[0]
-            for character in ans:
-                inputElement.send_keys(character)
-                sleep(Values.typing_speed)
+		if question in wordlist_reversed and not makemistake:
+			# print(wordlist)
+			ans = wordlist_reversed[question]
+			ans = ans.split(",")[0]
+			for character in ans:
+				inputElement.send_keys(character)
+				sleep(Values.typing_speed)
 
-            submitElement.click()
-        else:
-            # Learn the word
-            print("Unknown word " + question + " learning...")
-            inputElement.send_keys("?")
-            sleep(0.2)
-            submitElement.click()
-            sleep(0.5)
-            if not makemistake:
-                correctansField = driver.find_element(by=By.CSS_SELECTOR, value="#correct-answer-field")
-                wordlist_reversed[question] = correctansField.text
-                # print(correctansField.text)
-            skipButton = driver.find_element(by=By.CSS_SELECTOR, value="#viewport > div.modal.lp-hint-dialog.center-modal.fade.ng-scope.ng-isolate-scope.in > div > div > div.modal-footer.ng-scope > button")
-            sleep(0.5)
-            skipButton.click()
+			submitElement.click()
+		else:
+			# Learn the word
+			print("Unknown word " + question + " learning...")
+			inputElement.send_keys("?")
+			sleep(0.2)
+			submitElement.click()
+			sleep(0.5)
+			if not makemistake:
+				correctansField = driver.find_element(by=By.CSS_SELECTOR, value="#correct-answer-field")
+				wordlist_reversed[question] = correctansField.text
+				# print(correctansField.text)
+			skipButton = driver.find_element(by=By.CSS_SELECTOR, value="#viewport > div.modal.lp-hint-dialog.center-modal.fade.ng-scope.ng-isolate-scope.in > div > div > div.modal-footer.ng-scope > button")
+			sleep(0.5)
+			skipButton.click()
 
-        sleep(Values.rest_in_between_questions)
-    
+		sleep(Values.rest_in_between_questions)
+	
 
 funcs.scanfunc = ScanWords
 funcs.readingfunc = doReading
@@ -491,101 +508,101 @@ script.textContent = `{
   const isFirefox = /Firefox/.test(navigator.userAgent) || typeof InstallTrigger !== 'undefined';
 
   const block = e => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
+	e.preventDefault();
+	e.stopPropagation();
+	e.stopImmediatePropagation();
   };
 
   /* visibility */
   Object.defineProperty(document, 'visibilityState', {
-    get() {
-      return 'visible';
-    }
+	get() {
+	  return 'visible';
+	}
   });
   if (isFirefox === false) {
-    Object.defineProperty(document, 'webkitVisibilityState', {
-      get() {
-        return 'visible';
-      }
-    });
+	Object.defineProperty(document, 'webkitVisibilityState', {
+	  get() {
+		return 'visible';
+	  }
+	});
   }
   document.addEventListener('visibilitychange', e => {
-    script.dispatchEvent(new Event('state'));
-    if (script.dataset.visibility !== 'false') {
-      return block(e);
-    }
+	script.dispatchEvent(new Event('state'));
+	if (script.dataset.visibility !== 'false') {
+	  return block(e);
+	}
   }, true);
   document.addEventListener('webkitvisibilitychange', e => script.dataset.visibility !== 'false' && block(e), true);
   window.addEventListener('pagehide', e => script.dataset.visibility !== 'false' && block(e), true);
 
   /* hidden */
   Object.defineProperty(document, 'hidden', {
-    get() {
-      return false;
-    }
+	get() {
+	  return false;
+	}
   });
   Object.defineProperty(document, isFirefox ? 'mozHidden' : 'webkitHidden', {
-    get() {
-      return false;
-    }
+	get() {
+	  return false;
+	}
   });
 
   /* focus */
   document.addEventListener('hasFocus', e => script.dataset.focus !== 'false' && block(e), true);
   document.__proto__.hasFocus = new Proxy(document.__proto__.hasFocus, {
-    apply(target, self, args) {
-      if (script.dataset.focus !== 'false') {
-        return true;
-      }
-      return Reflect.apply(target, self, args);
-    }
+	apply(target, self, args) {
+	  if (script.dataset.focus !== 'false') {
+		return true;
+	  }
+	  return Reflect.apply(target, self, args);
+	}
   });
 
   /* blur */
   const onblur = e => {
-    if (script.dataset.blur !== 'false') {
-      if (e.target === document || e.target === window) {
-        return block(e);
-      }
-    }
+	if (script.dataset.blur !== 'false') {
+	  if (e.target === document || e.target === window) {
+		return block(e);
+	  }
+	}
   };
   document.addEventListener('blur', onblur, true);
   window.addEventListener('blur', onblur, true);
 
   /* mouse */
   window.addEventListener('mouseleave', e => {
-    if (script.dataset.mouseleave !== 'false') {
-      if (e.target === document || e.target === window) {
-        return block(e);
-      }
-    }
+	if (script.dataset.mouseleave !== 'false') {
+	  if (e.target === document || e.target === window) {
+		return block(e);
+	  }
+	}
   }, true);
 
   /* requestAnimationFrame */
   let lastTime = 0;
   window.requestAnimationFrame = new Proxy(window.requestAnimationFrame, {
-    apply(target, self, args) {
-      if (script.dataset.hidden === 'true') {
-        const currTime = Date.now();
-        const timeToCall = Math.max(0, 16 - (currTime - lastTime));
-        const id = window.setTimeout(function() {
-          args[0](performance.now());
-        }, timeToCall);
-        lastTime = currTime + timeToCall;
-        return id;
-      }
-      else {
-        return Reflect.apply(target, self, args);
-      }
-    }
+	apply(target, self, args) {
+	  if (script.dataset.hidden === 'true') {
+		const currTime = Date.now();
+		const timeToCall = Math.max(0, 16 - (currTime - lastTime));
+		const id = window.setTimeout(function() {
+		  args[0](performance.now());
+		}, timeToCall);
+		lastTime = currTime + timeToCall;
+		return id;
+	  }
+	  else {
+		return Reflect.apply(target, self, args);
+	  }
+	}
   });
   window.cancelAnimationFrame = new Proxy(window.cancelAnimationFrame, {
-    apply(target, self, args) {
-      if (script.dataset.hidden === 'true') {
-        clearTimeout(args[0]);
-      }
-      return Reflect.apply(target, self, args);
-    }
+	apply(target, self, args) {
+	  if (script.dataset.hidden === 'true') {
+		clearTimeout(args[0]);
+	  }
+	  return Reflect.apply(target, self, args);
+	}
   });
 
 }`;
@@ -600,7 +617,7 @@ const update = () => chrome.storage.local.get({
 }, prefs => {
   let hostname = location.hostname;
   try {
-    hostname = parent.location.hostname;
+	hostname = parent.location.hostname;
   }
   catch (e) {}
 
@@ -620,12 +637,12 @@ driver.execute_script(FakeFocusScript)
 
 """
 def task():
-    try:
-        driver.find_element(by=By.CSS_SELECTOR, value="#resume-button").click()
-    except:
-        pass
+	try:
+		driver.find_element(by=By.CSS_SELECTOR, value="#resume-button").click()
+	except:
+		pass
 
-    w.after(2000, task) 
+	w.after(2000, task) 
 
 w.after(2000, task)
 """
