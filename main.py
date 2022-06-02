@@ -1,19 +1,75 @@
-print("Connecting to MainServer...")
+servers = {"MainServer": ("TOR", "address.onion", "80"), "DebugServer": ("TCP", "127.0.0.1", "1234")}
+
 import os
 import socket
+from distro import like
 import socks
 
-debugMode = True
+server = servers["DebugServer"]
+
+from tkinter import Tk
+from tkinter import simpledialog
 
 if not os.path.basename(__file__) == "main.py":
     debugMode = False
 
+if server[0] == "TOR":
+	s = socks.socket()
+	s.set_proxy(socks.SOCKS5, "127.0.0.1", 9090)
+elif server[0] == "TCP":
+	s = socket.socket()
+
+import platform
+
+system = platform.system()
+
+if system == "Windows":
+    datapath = os.getenv('APPDATA') + "\\epbot"
+elif system == "Linux":
+    datapath = ""
+elif system == "Darwin":
+    datapath = os.path.expanduser('~') + "/Library/Application Support/epbot"
+if not os.path.isdir(datapath) and not datapath == "": 
+    os.mkdir(datapath)
+
+w = Tk()
+w.withdraw()
+
+print("Getting ip for verification in case you loose your license key!")
+import requests
+getipurl = 'https://api64.ipify.org?format=json'
+res = requests.get(getipurl)
+
+ip = res.json()
+ip = ip["ip"]
+print(f"Public IP addr: {ip}")
+
+serverpacket = {"IP": ip}
+
+serverpacket["username"] = os.getlogin()
+
+if os.path.isfile(datapath + "/licensekey"):
+	lickey = ""
+	with open(datapath + "/licensekey") as f:
+		lickey = f.read()
+	
+	serverpacket["LICKEY"] = lickey
+else:
+	print("License key not found!")
+
+	answer = simpledialog.askstring("Register product", "Enter license key: ")
+
+	print(answer)
+	
+print(f"Connecting to {server} via {server[0]}")
+
+s.connect((server[1], int(server[2])))
 
 
-print("Starting...")
+
+print("Starting Bot...")
 from multiprocessing.sharedctypes import Value
 from random import randint
-from tkinter import Tk
 from selenium import webdriver
 import chromedriver_autoinstaller
 import selenium
@@ -27,20 +83,9 @@ import base64
 # TODO: implement contacting server and stuff
 
 print("Detecting os and setting variables...")
-import platform
 
 from gui import getLogin, funcs, MainApp, messagebox, Values
 
-system = platform.system()
-
-if system == "Windows":
-    datapath = os.getenv('APPDATA') + "\\epbot"
-elif system == "Linux":
-    datapath = "LINUX"
-elif system == "Darwin":
-    datapath = os.path.expanduser('~') + "/Library/Application Support/epbot"
-if not os.path.isdir(datapath) and not datapath == "LINUX": 
-    os.mkdir(datapath)
 
 print("Setting more variables...")
 
@@ -100,8 +145,6 @@ print(f"Password: {'*' * len(password)}")
 print("Logging in to education perfect...")
 driver.get("https://app.educationperfect.com/app/login")
 
-w = Tk()
-w.withdraw()
 originalPos = driver.get_window_position()
 width = w.winfo_screenwidth()
 
@@ -221,6 +264,7 @@ def quitTask():
     backButton.click()
     backButton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
     backButton.click()
+    print("STOPTASK")
 
 def doReading():
     global wordlist
@@ -236,7 +280,7 @@ def doReading():
             onexit()
     
     taskbutton.click()
-    startbutton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
+    startbutton = driver.find_element(by=By.XPATH, value="/html/body/div[2]/main[3]/div/student-app-wrapper/div[1]/div[2]/div/ui-view/div/div[2]/div/div[1]/div[4]/button")
     startbutton.click()
 
     while True:
@@ -263,9 +307,9 @@ def doReading():
         makemistake = False
 
         question = wordElement.text
-
-        if randint(1, Values.error_rate) == 1:
-            makemistake = True
+        if not Values.error_rate == 0:
+            if randint(1, Values.error_rate) == 1:
+                makemistake = True
 
         if question in wordlist and not makemistake:
             # print(wordlist)
@@ -374,5 +418,156 @@ funcs.stoptask = quitTask
 
 app = MainApp(exitfunc=onexit)
 
-driver.execute_script("window.onblur = function() { window.onfocus() }")
+FakeFocusScript = """
+
+const script = document.createElement('script');
+script.dataset.hidden = document.hidden;
+script.addEventListener('state', () => {
+  script.dataset.hidden = document.hidden;
+});
+
+script.textContent = `{
+  const script = document.currentScript;
+  const isFirefox = /Firefox/.test(navigator.userAgent) || typeof InstallTrigger !== 'undefined';
+
+  const block = e => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+  };
+
+  /* visibility */
+  Object.defineProperty(document, 'visibilityState', {
+    get() {
+      return 'visible';
+    }
+  });
+  if (isFirefox === false) {
+    Object.defineProperty(document, 'webkitVisibilityState', {
+      get() {
+        return 'visible';
+      }
+    });
+  }
+  document.addEventListener('visibilitychange', e => {
+    script.dispatchEvent(new Event('state'));
+    if (script.dataset.visibility !== 'false') {
+      return block(e);
+    }
+  }, true);
+  document.addEventListener('webkitvisibilitychange', e => script.dataset.visibility !== 'false' && block(e), true);
+  window.addEventListener('pagehide', e => script.dataset.visibility !== 'false' && block(e), true);
+
+  /* hidden */
+  Object.defineProperty(document, 'hidden', {
+    get() {
+      return false;
+    }
+  });
+  Object.defineProperty(document, isFirefox ? 'mozHidden' : 'webkitHidden', {
+    get() {
+      return false;
+    }
+  });
+
+  /* focus */
+  document.addEventListener('hasFocus', e => script.dataset.focus !== 'false' && block(e), true);
+  document.__proto__.hasFocus = new Proxy(document.__proto__.hasFocus, {
+    apply(target, self, args) {
+      if (script.dataset.focus !== 'false') {
+        return true;
+      }
+      return Reflect.apply(target, self, args);
+    }
+  });
+
+  /* blur */
+  const onblur = e => {
+    if (script.dataset.blur !== 'false') {
+      if (e.target === document || e.target === window) {
+        return block(e);
+      }
+    }
+  };
+  document.addEventListener('blur', onblur, true);
+  window.addEventListener('blur', onblur, true);
+
+  /* mouse */
+  window.addEventListener('mouseleave', e => {
+    if (script.dataset.mouseleave !== 'false') {
+      if (e.target === document || e.target === window) {
+        return block(e);
+      }
+    }
+  }, true);
+
+  /* requestAnimationFrame */
+  let lastTime = 0;
+  window.requestAnimationFrame = new Proxy(window.requestAnimationFrame, {
+    apply(target, self, args) {
+      if (script.dataset.hidden === 'true') {
+        const currTime = Date.now();
+        const timeToCall = Math.max(0, 16 - (currTime - lastTime));
+        const id = window.setTimeout(function() {
+          args[0](performance.now());
+        }, timeToCall);
+        lastTime = currTime + timeToCall;
+        return id;
+      }
+      else {
+        return Reflect.apply(target, self, args);
+      }
+    }
+  });
+  window.cancelAnimationFrame = new Proxy(window.cancelAnimationFrame, {
+    apply(target, self, args) {
+      if (script.dataset.hidden === 'true') {
+        clearTimeout(args[0]);
+      }
+      return Reflect.apply(target, self, args);
+    }
+  });
+
+}`;
+document.documentElement.appendChild(script);
+script.remove();
+const update = () => chrome.storage.local.get({
+  'blur': true,
+  'focus': true,
+  'mouseleave': true,
+  'visibility': true,
+  'policies': null
+}, prefs => {
+  let hostname = location.hostname;
+  try {
+    hostname = parent.location.hostname;
+  }
+  catch (e) {}
+
+  prefs.policies = prefs.policies ?? {};
+  const policy = prefs.policies[hostname] || [];
+
+  script.dataset.blur = policy.indexOf('blur') === -1 ? prefs.blur : false;
+  script.dataset.focus = policy.indexOf('focus') === -1 ? prefs.focus : false;
+  script.dataset.mouseleave = policy.indexOf('mouseleave') === -1 ? prefs.mouseleave : false;
+  script.dataset.visibility = policy.indexOf('visibility') === -1 ? prefs.visibility : false;
+});
+update();
+chrome.storage.onChanged.addListener(update);
+"""
+
+driver.execute_script(FakeFocusScript)
+
+"""
+def task():
+    try:
+        driver.find_element(by=By.CSS_SELECTOR, value="#resume-button").click()
+    except:
+        pass
+
+    w.after(2000, task) 
+
+w.after(2000, task)
+"""
+
 w.mainloop()

@@ -6,19 +6,19 @@ from tkinter import ttk
 
 class funcs:
     # To raise an exception found on https://stackoverflow.com/questions/8294618/define-a-lambda-expression-that-raises-an-exception
-    scanfunc = lambda : (_ for _ in ()).throw(NotImplemented("scanfun() is not implemented!"))
-    exitfunc = lambda : (_ for _ in ()).throw(NotImplemented("exitfunc() is not implemented!"))
-    readingfunc = lambda : (_ for _ in ()).throw(NotImplemented("readingfunc() is not implemented!"))
-    writingfunc = lambda : (_ for _ in ()).throw(NotImplemented("writingfunc() is not implemented!"))
-    hidewindow = lambda : (_ for _ in ()).throw(NotImplemented("hidewindow() is not implemented!"))
-    showwindow = lambda : (_ for _ in ()).throw(NotImplemented("showwindow() is not implemented!"))
-    verifyontask = lambda : (_ for _ in ()).throw(NotImplemented("showwindow() is not implemented!"))
-    stoptask = lambda : (_ for _ in ()).throw(NotImplemented("stoptask() is not implemented!"))
+    scanfunc = lambda : exec('raise NotImplementedError("scanfunc() is not implemented!")')
+    exitfunc = lambda : exec('raise NotImplementedError("exitfunc() is not implemented!")')
+    readingfunc = lambda : exec('raise NotImplementedError("readingfunc() is not implemented!")')
+    writingfunc = lambda : exec('raise NotImplementedError("writingfunc() is not implemented!")')
+    hidewindow = lambda : exec('raise NotImplementedError("hidewindow() is not implemented!")')
+    showwindow = lambda : exec('raise NotImplementedError("showwindow() is not implemented!")')
+    verifyontask = lambda : exec('raise NotImplementedError("verifyontask() is not implemented!")')
+    stoptask = lambda : exec('raise NotImplementedError("stoptask() is not implemented!")')
 
 class Values:
     running = False
     typing_speed = 0.2 # Seconds delay between characters
-    error_rate = 10 # 1 in {error_rate} chance the program will take hint on purpous
+    error_rate = 0 # 1 in {error_rate} chance the program will take hint on purpous
     rest_in_between_questions = 1 # Don't set below 1 or program might break
 
 def getLogin():
@@ -195,6 +195,7 @@ class ControlPanel(tkinter.Frame):
     def __init__(self, parent, controller):
          
         tkinter.Frame.__init__(self, parent)
+        self.controller = controller
         label = ttk.Label(self, text ="Education Perfect Bot\n     Control panel", font = LARGEFONT)
         label.place(x = 107, y=10)
         lab = ttk.Label(self, text="")
@@ -213,11 +214,11 @@ class ControlPanel(tkinter.Frame):
         self.button2.place(x=10, y=140)
         self.paused = True
 
-        TypingLab = ttk.Label(self, text="Typing speed: ")
+        TypingLab = ttk.Label(self, text="Typing speed (0.00 means 0.01): ")
         TypingLab.place(x=10, y=170)
         self.Typingslider = tkinter.Scale(
             self,
-            from_=0.05,
+            from_=0.00,
             to=1,
             orient='horizontal',  # horizontal
         )
@@ -247,11 +248,22 @@ class ControlPanel(tkinter.Frame):
         self.Typingslider.configure(state = "normal" if self.paused else "disabled")
 
     def saveConfigs(self):
-        Values.typing_speed = self.Typingslider.get()
+        Values.typing_speed = self.Typingslider.get() if self.Typingslider.get() > 0.00 else 0.01
+        print(Values.typing_speed)
+
     def quit(self):
         funcs.stoptask()
         self.paused = True
         Values.running = False
+        if self.paused:
+            self.button1.config(text="Start")
+            self.label2.config(text="Paused")            
+        else:
+            self.saveConfigs()
+            self.button1.config(text="Pause")
+            self.label2.config(text="Running...")
+
+        self.controller.show_frame(MainPage)
 
 import sys
 
@@ -322,8 +334,10 @@ if __name__ == "__main__":
     funcs.readingfunc = faker
     funcs.writingfunc = fakew
     funcs.verifyontask = returnTrue
-
-    app = MainApp(exitfunc=onexit)
+    funcs.exitfunc = donothing
+    funcs.stoptask = donothing
+    
+    app = MainApp(exitfunc=onexit) 
 
     while True:
         time.sleep(10)
