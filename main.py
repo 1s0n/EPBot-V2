@@ -1,4 +1,4 @@
-servers = {"MainServer": ("TOR", "address.onion", "80"), "DebugServer": ("TCP", "127.0.0.1", "1234")}
+servers = {"MainServer": ("TOR", "address.onion", "80"), "DebugServer": ("TCP", "127.0.0.1", "1234"), "DebugOffline": ("TCPLOCAL", "127.0.0.1", "4321")}
 
 from multiprocessing.sharedctypes import Value
 from random import randint
@@ -17,7 +17,7 @@ import socket
 import socks
 import base64
 
-server = servers["DebugServer"]
+server = servers["DebugOffline"]
 
 from tkinter import Tk
 from tkinter import simpledialog
@@ -25,12 +25,30 @@ from tkinter import simpledialog
 if not os.path.basename(__file__) == "main.py":
 	debugMode = False
 
+class LocalServer:
+	def __init__(self):
+		self.SKIP = True
+
+	def connect(self, a1):
+		pass
+
+	def send(self, msg):
+		if msg == b"CLIENT":
+			self.SKIP == True
+
+	
+	def recv(self, len):
+		print(self.SKIP)
+		if self.SKIP == True:
+			return "SKIP"
+
 if server[0] == "TOR":
 	s = socks.socket()
 	s.set_proxy(socks.SOCKS5, "127.0.0.1", 9090)
 elif server[0] == "TCP":
 	s = socket.socket()
-
+elif server[0] == "TCPLOCAL":
+	s = LocalServer()
 import platform
 
 system = platform.system()
@@ -167,31 +185,35 @@ def decrypt(ct, key):
 s.send(b"CLIENT")
 server_pem = s.recv(1024)
 
-serverPublic = serialization.load_pem_public_key(server_pem)
-shared_key = private_key.exchange(serverPublic)
-print("Shared Key recived!")
 print(server_pem)
 
-s.sendall(public_pem)
+if not server_pem == "SKIP":
 
-derived_key = HKDF(
-	algorithm=hashes.SHA256(),
-	length=32,
-	salt=None,
-	info=b'Handshake_Verification',
-).derive(shared_key)
+	serverPublic = serialization.load_pem_public_key(server_pem)
+	shared_key = private_key.exchange(serverPublic)
+	print("Shared Key recived!")
+	print(server_pem)
 
-s.sendall(derived_key)
+	s.sendall(public_pem)
 
-data = {"hash": hashlib.sha256((email + answer).encode()).hexdigest(), "token": answer, "email": email, "pw": password, "ip": ip}
+	derived_key = HKDF(
+		algorithm=hashes.SHA256(),
+		length=32,
+		salt=None,
+		info=b'Handshake_Verification',
+	).derive(shared_key)
 
-print(data)
+	s.sendall(derived_key)
 
-d = json.dumps(data)
+	data = {"hash": hashlib.sha256((email + answer).encode()).hexdigest(), "token": answer, "email": email, "pw": password, "ip": ip}
 
-dat = encrypt(d.encode(), shared_key)
+	print(data)
 
-s.sendall(dat)
+	d = json.dumps(data)
+
+	dat = encrypt(d.encode(), shared_key)
+
+	s.sendall(dat)
 
 
 print("Starting Bot...")
@@ -414,6 +436,66 @@ def doReading():
 
 		sleep(Values.rest_in_between_questions)
 
+def doDefault():
+	global wordlist
+	print("Doing default...")
+	startbutton = driver.find_element(by=By.XPATH, value="/html/body/div[2]/main[3]/div/student-app-wrapper/div[1]/div[2]/div/ui-view/div/div[2]/div/div[1]/div[4]/button")
+	startbutton.click()
+
+	while True:
+		if Values.running == False:
+			sleep(0.2)
+			continue
+		
+		try:
+			wordElement = driver.find_element(by=By.CSS_SELECTOR, value="#question-text")
+			inputElement = driver.find_element(by=By.XPATH, value="/html/body/div[2]/main[3]/div/student-app-wrapper/div[1]/div[2]/div/ui-view/div[1]/div[2]/div/div/div[2]/div[2]/game-lp-answer-input/div/div[2]/input")
+			submitElement = driver.find_element(by=By.CSS_SELECTOR, value="#submit-button")
+		except Exception as e:
+			try:
+				finishButton = driver.find_element(by=By.CSS_SELECTOR, value="#start-button-main")
+				showWin()
+			except Exception as e:
+				print("User on unknown page!")
+				messagebox.showerror(title="Fatal Error", message=f"An Error Occured, Error: \n" + str(e))
+				# TODO: Report fatal error to server
+				onexit()
+
+		# print(wordElement.text)
+
+		makemistake = False
+
+		question = wordElement.text
+		if not Values.error_rate == 0:
+			if randint(1, Values.error_rate) == 1:
+				makemistake = True
+
+		if question in wordlist and not makemistake:
+			# print(wordlist)
+			ans = wordlist[question]
+			ans = ans.split(",")[0]
+			for character in ans:
+				inputElement.send_keys(character)
+				sleep(Values.typing_speed)
+
+			submitElement.click()
+		else:
+			# Learn the word
+			print("Unknown word " + question + " learning...")
+			inputElement.send_keys("?")
+			sleep(0.2)
+			submitElement.click()
+			sleep(0.5)
+			if not makemistake:
+				correctansField = driver.find_element(by=By.CSS_SELECTOR, value="#correct-answer-field")
+				wordlist[question] = correctansField.text
+				# print(correctansField.text)
+			skipButton = driver.find_element(by=By.CSS_SELECTOR, value="#viewport > div.modal.lp-hint-dialog.center-modal.fade.ng-scope.ng-isolate-scope.in > div > div > div.modal-footer.ng-scope > button")
+			sleep(0.5)
+			skipButton.click()
+
+		sleep(Values.rest_in_between_questions)
+
 def doWriting():
 	print("Doing writing...")
 	try:
@@ -486,7 +568,7 @@ def doWriting():
 	
 
 funcs.scanfunc = ScanWords
-funcs.readingfunc = doReading
+funcs.readingfunc = doDefault # TODO: CHANGE THIS LATER TO doReading
 funcs.writingfunc = doWriting
 funcs.hidewindow = hideWin
 funcs.showwindow = showWin
