@@ -60,16 +60,8 @@ if not os.path.isdir(datapath) and not datapath == "":
 w = Tk()
 w.withdraw()
 
-print("Getting ip for verification in case you loose your license key!")
 import requests
-getipurl = 'https://api64.ipify.org'
-res = requests.get(getipurl)
-
-ip = res.text
-print(f"Public IP addr: {ip}")
-
-serverpacket = {"IP": ip}
-
+serverpacket = {}
 serverpacket["username"] = os.getlogin()
 
 def onexit():

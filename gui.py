@@ -218,12 +218,15 @@ class ControlPanel(tkinter.Frame):
 
         self.button2 = ttk.Button(self, text ="Quit",
                             command = self.quit)
+        
+        self.button3 = ttk.Button(self, text ="Back (If quit doesn't work)",
+                            command = self.back)
 
         self.button1.place(x=10, y=100)
 
         self.button2.place(x=10, y=140)
         self.paused = True
-
+        self.button3.place(x=100, y=140)
         TypingLab = ttk.Label(self, text="Typing speed (0.00 means 0.01): ")
         TypingLab.place(x=10, y=170)
         self.Typingslider = tkinter.Scale(
@@ -264,6 +267,17 @@ class ControlPanel(tkinter.Frame):
     def quit(self):
         funcs.stoptask()
         print("STOPTASK")
+        self.controller.show_frame(MainPage)
+        self.paused = True
+        Values.running = False
+        if self.paused:
+            self.button1.config(text="Start")
+            self.label2.config(text="Paused")            
+        else:
+            self.saveConfigs()
+            self.button1.config(text="Pause")
+            self.label2.config(text="Running...")
+    def back(self):
         self.controller.show_frame(MainPage)
         self.paused = True
         Values.running = False

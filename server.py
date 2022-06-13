@@ -89,9 +89,6 @@ def HandleReq(conn, addr):
             return
     
 
-
-
-
 print("Listening...")
         
 s.listen()
