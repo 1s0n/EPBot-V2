@@ -1,8 +1,6 @@
-servers = {"MainServer": ("TOR", "address.onion", "80"), "DebugServer": ("TCP", "127.0.0.1", "1234"), "DebugOffline": ("TCPLOCAL", "127.0.0.1", "4321")}
+servers = {"MainServer": ("TCP", "us-or-cera-1.natfrp.cloud", "19256"), "DebugServer": ("TCP", "127.0.0.1", "6437"), "DebugOffline": ("TCPLOCAL", "127.0.0.1", "4321")}
 
-from multiprocessing.sharedctypes import Value
 from random import randint
-from more_itertools import one
 from selenium import webdriver
 import chromedriver_autoinstaller
 import selenium
@@ -14,7 +12,6 @@ import json
 from time import sleep
 import os
 import socket
-import socks
 import base64
 
 server = servers["DebugOffline"]
@@ -42,13 +39,11 @@ class LocalServer:
 		if self.SKIP == True:
 			return "SKIP"
 
-if server[0] == "TOR":
-	s = socks.socket()
-	s.set_proxy(socks.SOCKS5, "127.0.0.1", 9090)
-elif server[0] == "TCP":
+if server[0] == "TCP":
 	s = socket.socket()
 elif server[0] == "TCPLOCAL":
 	s = LocalServer()
+
 import platform
 
 system = platform.system()
