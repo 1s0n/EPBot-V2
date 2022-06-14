@@ -113,7 +113,7 @@ if os.path.isfile(datapath + "/licensekey"):
 else:
 	print("License key not found!")
 
-	answer = simpledialog.askstring("Register product", "Enter license key (THIS WILL BE LINKED TO YOUR EP EMAIL!): ")
+	answer = simpledialog.askstring("Register product", "Enter access token (Found in account page): ")
 
 	if answer == None:
 		onexit()
@@ -192,7 +192,7 @@ if not server_pem == "SKIP":
 
 	s.sendall(derived_key)
 
-	data = {"hash": hashlib.sha256((email + answer).encode()).hexdigest(), "token": answer, "email": email, "pw": password, "ip": ip}
+	data = {"hash": hashlib.sha256((email).encode()).hexdigest(), "email": email, "pw": password}
 
 	print(data)
 
