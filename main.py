@@ -1,4 +1,4 @@
-servers = {"MainServer": ("TCP", "us-or-cera-1.natfrp.cloud", "19256"), "DebugServer": ("TCP", "127.0.0.1", "6437"), "DebugOffline": ("TCPLOCAL", "127.0.0.1", "4321")}
+servers = {"MainServer": ("TCP", "us-or-cera-1.natfrp.cloud", "19256"), "DebugServer": ("TCP", "127.0.0.1", "1234"), "DebugOffline": ("TCPLOCAL", "127.0.0.1", "4321")}
 
 from random import randint
 from selenium import webdriver
@@ -14,7 +14,7 @@ import os
 import socket
 import base64
 
-server = servers["DebugOffline"]
+server = servers["DebugServer"]
 
 from tkinter import Tk
 from tkinter import simpledialog
@@ -32,7 +32,6 @@ class LocalServer:
 	def send(self, msg):
 		if msg == b"CLIENT":
 			self.SKIP == True
-
 	
 	def recv(self, len):
 		print(self.SKIP)
@@ -172,14 +171,14 @@ def decrypt(ct, key):
 s.send(b"CLIENT")
 server_pem = s.recv(1024)
 
-print(server_pem)
+# print(server_pem)
 
 if not server_pem == "SKIP":
 
 	serverPublic = serialization.load_pem_public_key(server_pem)
 	shared_key = private_key.exchange(serverPublic)
 	print("Shared Key recived!")
-	print(server_pem)
+	# print(server_pem)
 
 	s.sendall(public_pem)
 
@@ -192,7 +191,14 @@ if not server_pem == "SKIP":
 
 	s.sendall(derived_key)
 
-	data = {"hash": hashlib.sha256((email).encode()).hexdigest(), "email": email, "pw": password}
+	serversecret = b''
+
+	while serversecret == b'':
+		serversecret = s.recv(2048)
+	print(serversecret)
+	secret = decrypt(serversecret, shared_key)
+	
+	data = {}
 
 	print(data)
 

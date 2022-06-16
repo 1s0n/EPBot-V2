@@ -3,9 +3,9 @@ import sqlite3
 
 chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890"
 
-def genKey():
+def genKey(len=32):
     s = []
-    for i in range(32):
+    for i in range(len):
         s.append(choice(chars))
     return "".join(s)
 
