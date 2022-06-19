@@ -1,5 +1,9 @@
 servers = {"MainServer": ("TCP", "us-or-cera-1.natfrp.cloud", "19256"), "DebugServer": ("TCP", "127.0.0.1", "1234"), "DebugOffline": ("TCPLOCAL", "127.0.0.1", "4321")}
 
+#TODO: Make Website
+#TODO: Implement new handshake
+#TODO: Implement license key verification!
+
 from random import randint
 from selenium import webdriver
 import chromedriver_autoinstaller
@@ -125,54 +129,59 @@ print(f"Connecting to {server} via {server[0]}")
 s.connect(("127.0.0.1", 1234))
 
 print("Setting up encryption stuff...")
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import dh
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives.serialization import Encoding
-from cryptography.hazmat.primitives.serialization import PublicFormat
-from cryptography.hazmat.primitives import serialization
 
-_parampem = b'-----BEGIN DH PARAMETERS-----\nMIIBCAKCAQEA0cCWPFextsxjaaOPT0HYHiTocc8nu/DRv3bSJjPPVUox94tVthlx\nDayDuJc4HdKAwqiOICKDEpSTBUsapDn/5R1heR7kVtL525+ioZeDkm2YusyfUW5q\nnLvPqXqecJ1Mx1WnE+PAne8ZAx9shcuiD4sIBhCAYHWaFVPDGak6QuIbGFLIekIa\nG6l8YwS2YfH+bkb8zPt0aOLwjgOolewLVUjD4ap94svYaPWvL8CyVQgmZYTpNCCL\n99fqBLKCKlW6wbGuY6FgcuoU6eCeL6yEUBd0cNUA4ehShVOdefUFSnGFM4KHIsCh\nK5+kI74v6MC3E6UfpjdiXZ0sL+3YxsodBwIBAg==\n-----END DH PARAMETERS-----\n'
+from hashlib import md5
+import socket
+from time import sleep 
+import rsa
 
-# Parameters are not generated each time
-parameters = serialization.load_pem_parameters(_parampem)
-
-private_key = parameters.generate_private_key()
-public_key = private_key.public_key()
-
-public_pem = public_key.public_bytes(encoding=Encoding.PEM, format=PublicFormat.SubjectPublicKeyInfo)
-
-import os
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-
-def encrypt(msg, key):
-	iv = None
-	cipher = None
-	encryptor = None
-	iv = os.urandom(16)
-	cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-	encryptor = cipher.encryptor()
-	ct = encryptor.update(msg) + encryptor.finalize()
-	del cipher
-	del encryptor
-	return ct
-
-def sendenc(conn, msg, key):
-	data = encrypt(msg, key)
-	conn.sendall(data)
-
-def decrypt(ct, key):
-	iv = os.urandom(16)
-	cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-	decryptor = cipher.decryptor()
-	msg = decryptor.update(ct) + decryptor.finalize()
-	return msg
+from cryptography.fernet import Fernet
 
 s.send(b"CLIENT")
-server_pem = s.recv(1024)
+print("Starting handshake...")
+public_pem = s.recv(1024)
+
+public_key = rsa.PublicKey.load_pkcs1(public_pem)
+
+print("Server public key recived, generating encryption key...")
+key = Fernet.generate_key()
+
+fernet = Fernet(key)
+
+keyEnc = rsa.encrypt(key, public_key)
+
+s.sendall(keyEnc)
+
+sec = s.recv(1024)
+server_secret = fernet.decrypt(sec)
+
+verhash = server_secret + key
+print(verhash)
+verhash = md5(verhash).hexdigest().encode()
+print(verhash)
+while s.recv(4) == "":
+    print("A")
+    sleep(0.1)
+sleep(2)
+vers = socket.socket()
+vers.connect(("127.0.0.1", 9821))
+vers.sendall(b"2")
+vers.sendall(verhash)
+resp = vers.recv(6)
+vers.close()
+if resp == b"ACCEPT":
+    print("Handshake data confirmed!")
+    print("Handshake complete!")
+else:
+    print("Handshake hash verification failed!")
+    print("Handshake failed! Closing connection...")
+    s.close()
+
+s.close()
 
 # print(server_pem)
 
+"""
 if not server_pem == "SKIP":
 
 	serverPublic = serialization.load_pem_public_key(server_pem)
@@ -207,6 +216,7 @@ if not server_pem == "SKIP":
 	dat = encrypt(d.encode(), shared_key)
 
 	s.sendall(dat)
+"""
 
 
 print("Starting Bot...")
@@ -231,7 +241,6 @@ if not datapath == "LINUX":
 
 
 driver = webdriver.Chrome()
-
 
 
 print("Logging in to education perfect...")

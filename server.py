@@ -1,50 +1,19 @@
 print("Starting...")
+from hashlib import md5
 import socket
 import secrets
 import sqlite3
 import threading
+from cryptography.fernet import Fernet
+import rsa
 s = socket.socket()
 s.bind(("127.0.0.1", 1234))
 
 print("Setting up encryption stuff...")
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.asymmetric import dh
-from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from cryptography.hazmat.primitives.serialization import Encoding
-from cryptography.hazmat.primitives.serialization import PublicFormat
-from cryptography.hazmat.primitives import serialization
-_parampem = b'-----BEGIN DH PARAMETERS-----\nMIIBCAKCAQEA0cCWPFextsxjaaOPT0HYHiTocc8nu/DRv3bSJjPPVUox94tVthlx\nDayDuJc4HdKAwqiOICKDEpSTBUsapDn/5R1heR7kVtL525+ioZeDkm2YusyfUW5q\nnLvPqXqecJ1Mx1WnE+PAne8ZAx9shcuiD4sIBhCAYHWaFVPDGak6QuIbGFLIekIa\nG6l8YwS2YfH+bkb8zPt0aOLwjgOolewLVUjD4ap94svYaPWvL8CyVQgmZYTpNCCL\n99fqBLKCKlW6wbGuY6FgcuoU6eCeL6yEUBd0cNUA4ehShVOdefUFSnGFM4KHIsCh\nK5+kI74v6MC3E6UfpjdiXZ0sL+3YxsodBwIBAg==\n-----END DH PARAMETERS-----\n'
-
-# Parameters are not generated each time
-parameters = serialization.load_pem_parameters(_parampem)
 
 import json
 
 import os
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-
-def encrypt(msg, key):
-	iv = None
-	cipher = None
-	encryptor = None
-	iv = os.urandom(16)
-	cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-	encryptor = cipher.encryptor()
-	ct = encryptor.update(msg) + encryptor.finalize()
-	del cipher
-	del encryptor
-	return ct
-
-def sendenc(conn, msg, key):
-	data = encrypt(msg, key)
-	conn.sendall(data)
-
-def decrypt(ct, key):
-	iv = os.urandom(16)
-	cipher = Cipher(algorithms.AES(key), modes.CBC(iv))
-	decryptor = cipher.decryptor()
-	msg = decryptor.update(ct) + decryptor.finalize()
-	return msg
 
 def testecho(headers, data):
 	data += "TESTECHO!"
@@ -110,6 +79,13 @@ postrequestpaths = {
 
 from genlicense import genKey
 
+print("Generating new encryption keys...")
+
+public_key, private_key = rsa.newkeys(2048)
+
+print("Getting pem of public key...")
+public_pem = public_key.save_pkcs1('PEM')
+
 def HandleReq(conn, addr):
 	print("Accepted!")
 	header = conn.recv(1024).decode()
@@ -152,34 +128,39 @@ def HandleReq(conn, addr):
 		conn.close()
 
 	elif reqDat[0] == "CLIENT":
-		print("Beginning encryption handshake...")
-		private_key = parameters.generate_private_key()
-		public_key = private_key.public_key()
-
-		public_pem = public_key.public_bytes(encoding=Encoding.PEM, format=PublicFormat.SubjectPublicKeyInfo)
 		conn.sendall(public_pem)
 
-		print("Reciving public pem...")
-		pemdat = conn.recv(1024)
-		clientPubic = serialization.load_pem_public_key(pemdat)
-		shared_key = private_key.exchange(clientPubic)
-		print("Shared Key recived!")
-		print("Verifying shared key...")
-		derived_key = HKDF(
-			algorithm=hashes.SHA256(),
-			length=32,
-			salt=None,
-			info=b'Handshake_Verification',
-		).derive(shared_key)
-		key2 = conn.recv(len(derived_key))
-		if key2 == derived_key:
+		keyEnc = conn.recv(256)
+
+		key = rsa.decrypt(keyEnc, private_key)
+
+		fernet = Fernet(key)
+
+		sec = secrets.token_hex(32).encode()
+
+		conn.sendall(fernet.encrypt(sec))
+
+		print("Confirming handshake hash with backup server...")
+
+
+		verhash = sec + key
+		print(verhash)
+		verhash = md5(verhash).hexdigest().encode() 
+		print(verhash)
+		vers = socket.socket()
+		vers.connect(("127.0.0.1", 9821))
+		vers.sendall(b"1")
+		vers.sendall(verhash)
+		conn.send(b"send")
+		resp = vers.recv(6)
+		vers.close()
+		if resp == b"ACCEPT":
+			print("Handshake data confirmed!")
 			print("Handshake complete!")
 		else:
-			print("KEYERROR!")
+			print("Handshake hash verification failed!")
+			print("Handshake failed! Closing connection...")
 			conn.close()
-			return
-
-		secret = genKey(64)
 		
 	conn.close()
 
