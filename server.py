@@ -9,6 +9,8 @@ import rsa
 s = socket.socket()
 s.bind(("127.0.0.1", 1234))
 
+# TODO: Implement logging
+
 print("Setting up encryption stuff...")
 
 import json
@@ -62,8 +64,9 @@ def activateAccount(headers, data):
 	print(results[0][0])
 	if results[0][0] == license:
 		print("License found!")
-		print("Deleting encryption key...")
-		cur.execute("INSERT INTO users (email, password) VALUES (?, ?);", (email, password))
+		print("Deleting license key and generating encryption key...")
+		enckey = Fernet.generate_key().decode()
+		cur.execute("INSERT INTO users (email, password, enckey) VALUES (?, ?, ?);", (email, password, enckey,))
 		cur.execute("DELETE FROM tokens WHERE data = ?;", (license,))
 	else:
 		return json.dumps({"FAILED": "Creation failed"})
@@ -99,6 +102,7 @@ def HandleReq(conn, addr):
 	
 	if reqDat[0] == "POST":
 		# print(addr)
+		# Handle post request
 		print("POST REQ")
 		req = header
 
@@ -142,7 +146,6 @@ def HandleReq(conn, addr):
 
 		print("Confirming handshake hash with backup server...")
 
-
 		verhash = sec + key
 		print(verhash)
 		verhash = md5(verhash).hexdigest().encode() 
@@ -162,6 +165,38 @@ def HandleReq(conn, addr):
 			print("Handshake failed! Closing connection...")
 			conn.close()
 		
+		email = conn.recv(1024)
+		email = fernet.decrypt(email).decode()
+		print("Request email " + email)
+		con = sqlite3.connect('license.db')
+		cur = con.cursor()
+		cur.execute("SELECT enckey FROM users WHERE email = ?;", (email,))
+		dat = cur.fetchone()
+		if dat != None:
+			dat = dat[0]
+		print(dat)
+		if dat == None:
+			conn.send(fernet.encrypt(b"FAILED"))
+		else:
+			conn.send(fernet.encrypt(dat.encode()))
+		logindat = conn.recv(1024)
+		print(type(logindat))
+		logindat = fernet.decrypt(logindat)
+		loginjson = json.loads(logindat)
+		if "email" in loginjson and "password" in loginjson:
+			password = loginjson["password"]
+		cur.execute("SELECT (enckey) FROM users WHERE (email, password) = (?, ?);", (email, password,))
+		res = cur.fetchone()
+		if res == None:
+			print("FAILED")
+			conn.send(fernet.encrypt(b"FAILED"))
+		else:
+			data = res[0].encode()
+			data = md5(data).hexdigest()
+			data = data.encode()
+			data = fernet.encrypt(data)
+			print(res)
+			conn.send(data)
 	conn.close()
 
 print("Listening...")

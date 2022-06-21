@@ -27,7 +27,8 @@ data TEXT NOT NULL
 CREATE TABLE users (
 ind INTEGER PRIMARY KEY,
 email TEXT NOT NULL,
-password TEXT NOT NULL
+password TEXT NOT NULL,
+enckey TEXT NOT NULL
 );
 """
 

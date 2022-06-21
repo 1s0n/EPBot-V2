@@ -63,13 +63,17 @@ def getLogin():
     email = None
     password = None
 
+    lop = True
+
     def cmd():
-        nonlocal email, password
+        nonlocal email, password, lop
         email = e1.get()
         password = e2.get()
         # print(email)
         # print(password)
         window.destroy()
+        lop = False
+        print("windowdestroued")
 
     #Button_with hover effect
     def bttn(x,y,text,ecolor,lcolor):
@@ -96,12 +100,11 @@ def getLogin():
 
         myButton1.place(x=x,y=y)
 
-
-
     bttn(100,375,'S T A R T','white','#994422')
-
-
-    window.mainloop()
+    print("Windowmailoop")
+    while lop:
+        window.update()
+    print("got password!")
     return email, password
 
 import threading
@@ -353,6 +356,7 @@ def donothing():
 def returnTrue():
     return True
 
+
 if __name__ == "__main__":
     funcs.scanfunc = fakescan
     funcs.readingfunc = faker
@@ -361,7 +365,11 @@ if __name__ == "__main__":
     funcs.exitfunc = donothing
     funcs.stoptask = donothing
     
+    """
     app = MainApp(exitfunc=onexit) 
 
     while True:
         time.sleep(10)
+    """
+    print(getLogin())
+    

@@ -1,10 +1,16 @@
 servers = {"MainServer": ("TCP", "us-or-cera-1.natfrp.cloud", "19256"), "DebugServer": ("TCP", "127.0.0.1", "1234"), "DebugOffline": ("TCPLOCAL", "127.0.0.1", "4321")}
 
 #TODO: Make Website
-#TODO: Implement new handshake
-#TODO: Implement license key verification!
+#TODO: Implement anti-tampering (For the python modules)
+#TODO: Implement auto-updates
+
+
+client_data = {
+	"version": "1.0.0"
+}
 
 from random import randint
+from more_itertools import one
 from selenium import webdriver
 import chromedriver_autoinstaller
 import selenium
@@ -93,8 +99,10 @@ def loadDat():
 	dat = json.loads(dat.decode())
 	return dat[0], dat[1]
 
+passwordenc = None
+
 try:
-	email, password = loadDat()
+	email, passwordenc = loadDat()
 except Exception as e:
 	print(e)
 	print("Login data doesn't exist or is corrupted!")
@@ -105,24 +113,7 @@ except Exception as e:
 		onexit()
 
 print(f"Email: {email}")
-print(f"Password: {'*' * len(password)}")
-
-if os.path.isfile(datapath + "/licensekey"):
-	lickey = ""
-	with open(datapath + "/licensekey") as f:
-		lickey = f.read()
-	
-	serverpacket["LICKEY"] = lickey
-else:
-	print("License key not found!")
-
-	answer = simpledialog.askstring("Register product", "Enter access token (Found in account page): ")
-
-	if answer == None:
-		onexit()
-	if answer.isspace():
-		onexit()
-	
+print(f"Password: {'*' * len(password)}")	
 
 print(f"Connecting to {server} via {server[0]}")
 
@@ -137,7 +128,7 @@ import rsa
 
 from cryptography.fernet import Fernet
 
-s.send(b"CLIENT")
+s.sendall(b"CLIENT")
 print("Starting handshake...")
 public_pem = s.recv(1024)
 
@@ -160,9 +151,8 @@ print(verhash)
 verhash = md5(verhash).hexdigest().encode()
 print(verhash)
 while s.recv(4) == "":
-    print("A")
     sleep(0.1)
-sleep(2)
+sleep(1)
 vers = socket.socket()
 vers.connect(("127.0.0.1", 9821))
 vers.sendall(b"2")
@@ -176,6 +166,44 @@ else:
     print("Handshake hash verification failed!")
     print("Handshake failed! Closing connection...")
     s.close()
+
+encemail = fernet.encrypt(email.encode())
+
+s.sendall(encemail)
+
+enckey = s.recv(1024)
+enckey = fernet.decrypt(enckey).decode()
+
+if enckey == "FAILED":
+	print("Email doesn't exist!")
+	onexit()
+
+f = Fernet(enckey)
+
+if passwordenc != None:
+	password = f.decrypt(passwordenc)
+
+loginpacket = {"email": email, "password": password}
+
+logindata = fernet.encrypt(json.dumps(loginpacket).encode())
+s.sendall(logindata)
+
+loginresults = s.recv(1024)
+loginresults = fernet.decrypt(loginresults)
+if loginresults == b"FAILED":
+	print("Login failed!")
+	onexit()
+
+md5key = md5(enckey.encode()).hexdigest().encode()
+
+if md5key == loginresults:
+	print("LOGIN SUCCESS!")
+else:
+	print("LOGIN FAILED!")
+	print(md5key)
+	print(loginresults)
+	s.close()
+	onexit()
 
 s.close()
 
@@ -220,8 +248,6 @@ if not server_pem == "SKIP":
 
 
 print("Starting Bot...")
-
-# TODO: implement contacting server and stuff
 
 print("Detecting os and setting variables...")
 
@@ -300,7 +326,6 @@ while True:
 		print("Login success (I think)...")
 		print("Encrypting and login to disk for quick login...")
 		# TODO: Save login using server encryption key and send to server
-		saveDat(email, password)
 		break
 
 wordlist = {} # other lang : English
