@@ -33,7 +33,6 @@ def handle(conn, addr):
 
             if timer <= 0:
                 conn.send(b"FAILED")
-                
             return
     
     dat = conn.recv(1024)

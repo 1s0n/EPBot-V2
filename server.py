@@ -6,16 +6,28 @@ import sqlite3
 import threading
 from cryptography.fernet import Fernet
 import rsa
+import logging
+
+# TODO: Implement auto-updates...
+#TODO: Make Website
+
+Log_Format = "[%(levelname)s][%(asctime)s] %(message)s"
+
+logging.basicConfig(filename = "logfile.log",
+                    filemode = "w",
+                    format = Log_Format)
+
+logger = logging.getLogger()
+
+logger.info("Logger setup finished!")
+
 s = socket.socket()
 s.bind(("127.0.0.1", 1234))
 
-# TODO: Implement logging
-
-print("Setting up encryption stuff...")
-
 import json
 
-import os
+
+logger.info("Defining functions...")
 
 def testecho(headers, data):
 	data += "TESTECHO!"
@@ -32,6 +44,7 @@ def checkemail(email):
 		return False
 
 def activateAccount(headers, data):
+	logger.log("Account activation request")
 	try:
 		c = headers["Content-Type"].split(";")[0]
 		if c != "application/json":
@@ -82,6 +95,8 @@ postrequestpaths = {
 
 from genlicense import genKey
 
+
+logger.info("Generating encryption keys...")
 print("Generating new encryption keys...")
 
 public_key, private_key = rsa.newkeys(2048)
@@ -97,6 +112,7 @@ def HandleReq(conn, addr):
 	reqDat = headers[0].split(" ")
 
 	if reqDat[0] == "GET":
+		logger.debug("New GET request from " + addr[0] + ":" + addr[1])
 		conn.sendall(b"HTTP/1.1 400 Bad Request")
 		conn.close()
 	
@@ -132,6 +148,7 @@ def HandleReq(conn, addr):
 		conn.close()
 
 	elif reqDat[0] == "CLIENT":
+		logger.debug("Client login request from " + addr[0])
 		conn.sendall(public_pem)
 
 		keyEnc = conn.recv(256)
@@ -200,7 +217,7 @@ def HandleReq(conn, addr):
 	conn.close()
 
 print("Listening...")
-		
+logger.info("Listening for connections...")
 s.listen()
 
 while True:

@@ -1,3 +1,5 @@
 *.pyc
 *.logindat
 Compile/
+*.dist/
+*.build/
