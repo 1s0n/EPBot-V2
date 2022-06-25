@@ -1,7 +1,6 @@
 servers = {"MainServer": ("TCP", "us-or-cera-1.natfrp.cloud", "19256"), "DebugServer": ("TCP", "127.0.0.1", "1234"), "DebugOffline": ("TCPLOCAL", "127.0.0.1", "4321")}
 verifyserver = {"MainServer": ("TCP")}
 
-
 #TODO: Implement anti-tampering
 #TODO: Implement auto-updates
 
@@ -199,6 +198,7 @@ md5key = md5(enckey.encode()).hexdigest().encode()
 
 if md5key == loginresults:
 	print("LOGIN SUCCESS!")
+	saveDat(email, )
 else:
 	print("LOGIN FAILED!")
 	print(md5key)
