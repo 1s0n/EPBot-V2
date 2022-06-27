@@ -2,9 +2,8 @@
 servers = {"MainServer": ("TCP", "us-or-cera-1.natfrp.cloud", "19256"), "DebugServer": ("TCP", "127.0.0.1", "1234"), "DebugOffline": ("TCPLOCAL", "127.0.0.1", "4321")}
 verifyserver = {"MainServer": ("TCP")}
 
-#TODO: Implement anti-tampering
-#TODO: Implement auto-updates
-
+#TODO: Implement anti-tampering - DOING
+#TODO: Implement auto-updates:
 
 client_data = {
 	"version": "1.0.0"
@@ -121,7 +120,7 @@ s.connect(("127.0.0.1", 1234))
 
 print("Setting up encryption stuff...")
 
-from hashlib import md5
+from hashlib import sha256
 import socket
 from time import sleep 
 import rsa
@@ -148,7 +147,7 @@ server_secret = fernet.decrypt(sec)
 
 verhash = server_secret + key
 print(verhash)
-verhash = md5(verhash).hexdigest().encode()
+verhash = sha256(verhash).hexdigest().encode()
 print(verhash)
 while s.recv(4) == "":
     sleep(0.1)
@@ -194,14 +193,14 @@ if loginresults == b"FAILED":
 	print("Login failed!")
 	onexit()
 
-md5key = md5(enckey.encode()).hexdigest().encode()
+sha256key = sha256(enckey.encode()).hexdigest().encode()
 
-if md5key == loginresults:
+if sha256key == loginresults:
 	print("LOGIN SUCCESS!")
 	saveDat(email, )
 else:
 	print("LOGIN FAILED!")
-	print(md5key)
+	print(sha256key)
 	print(loginresults)
 	s.close()
 	onexit()
@@ -209,43 +208,6 @@ else:
 s.close()
 
 # print(server_pem)
-
-"""
-if not server_pem == "SKIP":
-
-	serverPublic = serialization.load_pem_public_key(server_pem)
-	shared_key = private_key.exchange(serverPublic)
-	print("Shared Key recived!")
-	# print(server_pem)
-
-	s.sendall(public_pem)
-
-	derived_key = HKDF(
-		algorithm=hashes.SHA256(),
-		length=32,
-		salt=None,
-		info=b'Handshake_Verification',
-	).derive(shared_key)
-
-	s.sendall(derived_key)
-
-	serversecret = b''
-
-	while serversecret == b'':
-		serversecret = s.recv(2048)
-	print(serversecret)
-	secret = decrypt(serversecret, shared_key)
-	
-	data = {}
-
-	print(data)
-
-	d = json.dumps(data)
-
-	dat = encrypt(d.encode(), shared_key)
-
-	s.sendall(dat)
-"""
 
 
 print("Starting Bot...")

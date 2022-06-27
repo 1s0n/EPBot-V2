@@ -28,7 +28,9 @@ CREATE TABLE users (
 ind INTEGER PRIMARY KEY,
 email TEXT NOT NULL,
 password TEXT NOT NULL,
-enckey TEXT NOT NULL
+enckey TEXT NOT NULL,
+enckey2 TEXT NOT NULL,
+expirydate INTEGER NOT NULL
 );
 """
 

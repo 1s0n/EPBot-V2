@@ -1,5 +1,5 @@
 print("Starting...")
-from hashlib import md5
+from hashlib import sha256
 import socket
 import secrets
 import sqlite3
@@ -7,6 +7,13 @@ import threading
 from cryptography.fernet import Fernet
 import rsa
 import logging
+from datetime import datetime, timezone
+
+"""
+dt = datetime( 2021, 3, 5, 14, 30, 21, tzinfo=timezone.utc )
+timestamp = int( dt.timestamp() )
+print( timestamp )
+"""
 
 # TODO: Implement auto-updates...
 #TODO: Make Website
@@ -165,7 +172,7 @@ def HandleReq(conn, addr):
 
 		verhash = sec + key
 		print(verhash)
-		verhash = md5(verhash).hexdigest().encode() 
+		verhash = sha256(verhash).hexdigest().encode() 
 		print(verhash)
 		vers = socket.socket()
 		vers.connect(("127.0.0.1", 9821))
@@ -209,7 +216,7 @@ def HandleReq(conn, addr):
 			conn.send(fernet.encrypt(b"FAILED"))
 		else:
 			data = res[0].encode()
-			data = md5(data).hexdigest()
+			data = sha256(data).hexdigest()
 			data = data.encode()
 			data = fernet.encrypt(data)
 			print(res)
