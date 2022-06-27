@@ -2,7 +2,8 @@ servers = {"MainServer": ("TCP", "us-or-cera-1.natfrp.cloud", "19256"), "DebugSe
 verifyserver = {"MainServer": ("TCP")}
 
 #TODO: Implement anti-tampering
-#TODO: Implement auto-updates
+#TODO: Implement auto-updates:
+#	Make main application from java and decrypt python source code using key from server
 
 
 client_data = {
@@ -209,43 +210,6 @@ else:
 s.close()
 
 # print(server_pem)
-
-"""
-if not server_pem == "SKIP":
-
-	serverPublic = serialization.load_pem_public_key(server_pem)
-	shared_key = private_key.exchange(serverPublic)
-	print("Shared Key recived!")
-	# print(server_pem)
-
-	s.sendall(public_pem)
-
-	derived_key = HKDF(
-		algorithm=hashes.SHA256(),
-		length=32,
-		salt=None,
-		info=b'Handshake_Verification',
-	).derive(shared_key)
-
-	s.sendall(derived_key)
-
-	serversecret = b''
-
-	while serversecret == b'':
-		serversecret = s.recv(2048)
-	print(serversecret)
-	secret = decrypt(serversecret, shared_key)
-	
-	data = {}
-
-	print(data)
-
-	d = json.dumps(data)
-
-	dat = encrypt(d.encode(), shared_key)
-
-	s.sendall(dat)
-"""
 
 
 print("Starting Bot...")
