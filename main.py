@@ -1,17 +1,14 @@
 servers = {"MainServer": ("TCP", "us-or-cera-1.natfrp.cloud", "19256"), "DebugServer": ("TCP", "127.0.0.1", "1234"), "DebugOffline": ("TCPLOCAL", "127.0.0.1", "4321")}
 verifyserver = {"MainServer": ("TCP")}
 
-#TODO: Implement anti-tampering
+#TODO: Implement anti-tampering - DOING
 #TODO: Implement auto-updates:
-#	Make main application from java and decrypt python source code using key from server
-
 
 client_data = {
 	"version": "1.0.0"
 }
 
 from random import randint
-from more_itertools import one
 from selenium import webdriver
 import chromedriver_autoinstaller
 import selenium
@@ -122,7 +119,7 @@ s.connect(("127.0.0.1", 1234))
 
 print("Setting up encryption stuff...")
 
-from hashlib import md5
+from hashlib import sha256
 import socket
 from time import sleep 
 import rsa
@@ -149,7 +146,7 @@ server_secret = fernet.decrypt(sec)
 
 verhash = server_secret + key
 print(verhash)
-verhash = md5(verhash).hexdigest().encode()
+verhash = sha256(verhash).hexdigest().encode()
 print(verhash)
 while s.recv(4) == "":
     sleep(0.1)
@@ -195,14 +192,14 @@ if loginresults == b"FAILED":
 	print("Login failed!")
 	onexit()
 
-md5key = md5(enckey.encode()).hexdigest().encode()
+sha256key = sha256(enckey.encode()).hexdigest().encode()
 
-if md5key == loginresults:
+if sha256key == loginresults:
 	print("LOGIN SUCCESS!")
 	saveDat(email, )
 else:
 	print("LOGIN FAILED!")
-	print(md5key)
+	print(sha256key)
 	print(loginresults)
 	s.close()
 	onexit()
