@@ -1,3 +1,4 @@
+#ClearText
 servers = {"MainServer": ("TCP", "us-or-cera-1.natfrp.cloud", "19256"), "DebugServer": ("TCP", "127.0.0.1", "1234"), "DebugOffline": ("TCPLOCAL", "127.0.0.1", "4321")}
 verifyserver = {"MainServer": ("TCP")}
 
@@ -10,7 +11,6 @@ client_data = {
 }
 
 from random import randint
-from more_itertools import one
 from selenium import webdriver
 import chromedriver_autoinstaller
 import selenium
