@@ -9,10 +9,10 @@ def genKey(len=32):
         s.append(choice(chars))
     return "".join(s)
 
-def addKey(key):
+def addKey(key, length):
     con = sqlite3.connect('license.db')
     cur = con.cursor()
-    cur.execute("INSERT INTO tokens (data) VALUES (?);", (key,))
+    cur.execute("INSERT INTO tokens (data, length) VALUES (?, ?);", (key,length,))
     con.commit()
     con.close()
 
@@ -21,7 +21,8 @@ def addKey(key):
 
 CREATE TABLE tokens (
 ind INTEGER PRIMARY KEY,
-data TEXT NOT NULL
+data TEXT NOT NULL,
+length INTEGER NOT NULL
 );
 
 CREATE TABLE users (
@@ -30,12 +31,15 @@ email TEXT NOT NULL,
 password TEXT NOT NULL,
 enckey TEXT NOT NULL,
 enckey2 TEXT NOT NULL,
-expirydate INTEGER NOT NULL
+expirydate INTEGER NOT NULL,
+token TEXT NOT NULL
 );
 """
 
 if __name__ == "__main__":
     k = genKey()
     print(k)
+    leng = input("length the key will be active (days): ")
+    leng = int(leng)
     input("Press control-c to cancel key creation...")
-    addKey(k)
+    addKey(k, leng)

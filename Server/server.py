@@ -4,7 +4,10 @@ import socket
 import secrets
 import sqlite3
 import threading
+import time
+import uuid
 from cryptography.fernet import Fernet
+import jwt
 import rsa
 import logging
 from datetime import datetime, timezone
@@ -34,6 +37,9 @@ s.bind(("127.0.0.1", 1234))
 import json
 
 
+def getdate():
+	return time.time()
+    
 logger.info("Defining functions...")
 
 def testecho(headers, data):
@@ -51,7 +57,8 @@ def checkemail(email):
 		return False
 
 def activateAccount(headers, data):
-	logger.log("Account activation request")
+	# Post request payload example: payload = {"email":"jason@gmail.com", "password": "p@ssword", "license": "ikAWYTeMN7KftBHEkdbNto8ykSCtXJnL"}
+	logger.info("Account activation request")
 	try:
 		c = headers["Content-Type"].split(";")[0]
 		if c != "application/json":
@@ -77,19 +84,30 @@ def activateAccount(headers, data):
 	print("Loading sql database...")
 	con = sqlite3.connect('license.db')
 	cur = con.cursor()
-	cur.execute("SELECT data FROM tokens WHERE data = ?", (license,))
+	cur.execute("SELECT data, length FROM tokens WHERE data = ?", (license,))
 	results = cur.fetchall()
 	if len(license) < 1:
 		return json.dumps({"FAILED": "Creation failed"})
 	print(results[0][0])
+	print(results[0])
 	if results[0][0] == license:
 		print("License found!")
+		print(f"License length: {results[0][1]} days")
 		print("Deleting license key and generating encryption key...")
 		enckey = Fernet.generate_key().decode()
-		cur.execute("INSERT INTO users (email, password, enckey) VALUES (?, ?, ?);", (email, password, enckey,))
+		enckey2 = enckey = Fernet.generate_key().decode()
+		expirydate = getdate() + (results[0][1] * 86400) # 86400 = 24*60*60
+		date = datetime.fromtimestamp(expirydate)
+		m = date.month
+		y = date.year
+		d = date.day
+		print(f"License expiring on: {d}/{m}/{y}")
+		token = secrets.token_hex(32)
+		cur.execute("INSERT INTO users (email, password, enckey, enckey2, expirydate, token) VALUES (?, ?, ?, ?, ?, ?);", (email, password, enckey, enckey2, expirydate, token,))
 		cur.execute("DELETE FROM tokens WHERE data = ?;", (license,))
 	else:
 		return json.dumps({"FAILED": "Creation failed"})
+
 	con.commit()
 	con.close()
 
@@ -110,6 +128,13 @@ public_key, private_key = rsa.newkeys(2048)
 
 print("Getting pem of public key...")
 public_pem = public_key.save_pkcs1('PEM')
+
+sessions = {}
+
+class SessionData:
+	def __init__(self, email, password):
+		self.email = email
+		self.password = password
 
 def HandleReq(conn, addr):
 	print("Accepted!")
@@ -209,8 +234,10 @@ def HandleReq(conn, addr):
 		loginjson = json.loads(logindat)
 		if "email" in loginjson and "password" in loginjson:
 			password = loginjson["password"]
+
 		cur.execute("SELECT (enckey) FROM users WHERE (email, password) = (?, ?);", (email, password,))
 		res = cur.fetchone()
+
 		if res == None:
 			print("FAILED")
 			conn.send(fernet.encrypt(b"FAILED"))
@@ -221,13 +248,27 @@ def HandleReq(conn, addr):
 			data = fernet.encrypt(data)
 			print(res)
 			conn.send(data)
+		
+		cli_data = conn.recv(1024)
+		client_data = fernet.decrypt(cli_data)
+		client_data = json.loads(client_data)
+
+		print(client_data)
+
 	conn.close()
 
 print("Listening...")
 logger.info("Listening for connections...")
 s.listen()
 
+def HandleReqSafe(c, a):
+	try:
+		HandleReq(c, a)
+	except Exception as e:
+		c.close()
+		raise e
+
 while True:
 	c, a = s.accept()
-	t = threading.Thread(target=HandleReq, args=(c, a,))
+	t = threading.Thread(target=HandleReqSafe, args=(c, a,))
 	t.start()
