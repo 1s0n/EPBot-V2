@@ -24,8 +24,8 @@ token TEXT NOT NULL
 );
 ```
 
-T̶O̶D̶O̶:̶ ̶I̶m̶p̶l̶e̶m̶e̶n̶t̶ ̶a̶n̶t̶i̶-̶t̶a̶m̶p̶e̶r̶i̶n̶g̶
+T̶O̶D̶O̶:̶ ̶I̶m̶p̶l̶e̶m̶e̶n̶t̶ ̶a̶n̶t̶i̶-̶t̶a̶m̶p̶e̶r̶i̶n̶g̶\n
 
-T̶O̶D̶O̶:̶ ̶I̶m̶p̶l̶e̶m̶e̶n̶t̶ ̶a̶u̶t̶o̶-̶u̶p̶d̶a̶t̶e̶s̶:̶
+T̶O̶D̶O̶:̶ ̶I̶m̶p̶l̶e̶m̶e̶n̶t̶ ̶a̶u̶t̶o̶-̶u̶p̶d̶a̶t̶e̶s̶:̶\n
 
 TODO: Add server maintainence message
