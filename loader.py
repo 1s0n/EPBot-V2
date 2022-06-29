@@ -1,9 +1,6 @@
 servers = {"MainServer": ("TCP", "us-or-cera-1.natfrp.cloud", "19256"), "DebugServer": ("TCP", "127.0.0.1", "1234"), "DebugOffline": ("TCPLOCAL", "127.0.0.1", "4321")}
 verifyserver = {"MainServer": ("TCP")}
 
-#TODO: Implement anti-tampering - DOING
-#TODO: Implement auto-updates:
-
 from random import randint
 from selenium import webdriver
 import chromedriver_autoinstaller
