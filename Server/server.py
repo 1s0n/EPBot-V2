@@ -11,6 +11,7 @@ import jwt
 import rsa
 import logging
 from datetime import datetime, timezone
+import base64
 
 """
 dt = datetime( 2021, 3, 5, 14, 30, 21, tzinfo=timezone.utc )
@@ -23,7 +24,7 @@ print( timestamp )
 
 Log_Format = "[%(levelname)s][%(asctime)s] %(message)s"
 
-logging.basicConfig(filename = "logfile.log",
+logging.basicConfig(filename = "server.log",
                     filemode = "w",
                     format = Log_Format)
 
@@ -35,7 +36,6 @@ s = socket.socket()
 s.bind(("127.0.0.1", 1234))
 
 import json
-
 
 def getdate():
 	return time.time()
@@ -136,6 +136,20 @@ class SessionData:
 		self.email = email
 		self.password = password
 
+def LoadVersionInfo():
+	jsondat = ""
+	with open("versioninfo.json", "r") as f:
+		jsondat = f.read()
+	versiondat = json.loads(jsondat)
+	return versiondat
+
+def waitTillConfirm(conn, data=b"a"):
+	while True:
+		a = conn.recv(1)
+		if a == data:
+			break
+		time.sleep(0.5)
+
 def HandleReq(conn, addr):
 	print("Accepted!")
 	header = conn.recv(1024).decode()
@@ -235,7 +249,7 @@ def HandleReq(conn, addr):
 		if "email" in loginjson and "password" in loginjson:
 			password = loginjson["password"]
 
-		cur.execute("SELECT (enckey) FROM users WHERE (email, password) = (?, ?);", (email, password,))
+		cur.execute("SELECT enckey, enckey2 FROM users WHERE (email, password) = (?, ?);", (email, password,))
 		res = cur.fetchone()
 
 		if res == None:
@@ -248,12 +262,86 @@ def HandleReq(conn, addr):
 			data = fernet.encrypt(data)
 			print(res)
 			conn.send(data)
-		
+
 		cli_data = conn.recv(1024)
 		client_data = fernet.decrypt(cli_data)
 		client_data = json.loads(client_data)
 
-		print(client_data)
+		client_version = client_data["version"]
+		client_build_no = client_data["release"]
+
+		versiondat = LoadVersionInfo()
+		latest_build = versiondat["version"]
+		latest_buildid = versiondat["release"]
+		if latest_buildid > client_build_no:
+			print("Client needs updating!")
+			conn.send(fernet.encrypt(b"UPDATE_REQUEST"))
+			waitTillConfirm(conn)
+			print("Reading update data...")
+			updatefile = versiondat["path"]
+			updatedata = ""
+			update_key = res[1].encode()
+			print(update_key)
+			f = Fernet(update_key)
+			with open(updatefile, "r") as fi:
+				updatedata = fi.read()
+			update_info = {
+				"version": versiondat["version"],
+				"release": versiondat["release"]
+			}
+			update_info = json.dumps(update_info)
+			update_info = update_info.encode()
+			updatedata = f.encrypt(updatedata.encode())
+			updatedata = base64.b64encode(update_info) + b"|SPLIT|" + updatedata
+			conn.send(fernet.encrypt(str(len(updatedata)).encode()))
+			print(f"Sent len of updatedata: {len(updatedata)}")
+			waitTillConfirm(conn)
+			conn.send(updatedata)
+			print("update finished!")
+			conn.close()
+			return
+			
+		print("Login success!")
+		update_key = res[1].encode()
+		conn.send(fernet.encrypt(b"LOGIN_SUCCESS"))
+		waitTillConfirm(conn)
+		conn.send(fernet.encrypt(update_key))
+	elif reqDat[0] == "CLIENT2":
+		logger.debug("Bot client login request from " + addr[0])
+		conn.sendall(public_pem)
+
+		keyEnc = conn.recv(256)
+
+		key = rsa.decrypt(keyEnc, private_key)
+
+		fernet = Fernet(key)
+
+		sec = secrets.token_hex(32).encode()
+
+		conn.sendall(fernet.encrypt(sec))
+
+		print("Confirming handshake hash with backup server...")
+
+		verhash = sec + key
+		print(verhash)
+		verhash = sha256(verhash).hexdigest().encode() 
+		print(verhash)
+		vers = socket.socket()
+		vers.connect(("127.0.0.1", 9821))
+		vers.sendall(b"1")
+		vers.sendall(verhash)
+		conn.send(b"send")
+		resp = vers.recv(6)
+		vers.close()
+		if resp == b"ACCEPT":
+			print("Handshake data confirmed!")
+			print("Handshake complete!")
+		else:
+			print("Handshake hash verification failed!")
+			print("Handshake failed! Closing connection...")
+			conn.close()
+		
+
 
 	conn.close()
 
@@ -261,12 +349,21 @@ print("Listening...")
 logger.info("Listening for connections...")
 s.listen()
 
+failed_requests = {}
+
 def HandleReqSafe(c, a):
+	try:
+		if failed_requests[a] > 10:
+			c.close()
+	except KeyError:
+		failed_requests[a] = 0
 	try:
 		HandleReq(c, a)
 	except Exception as e:
 		c.close()
+		failed_requests[a] += 1
 		raise e
+	failed_requests[a] = 0
 
 while True:
 	c, a = s.accept()
