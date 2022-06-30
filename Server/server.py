@@ -10,7 +10,7 @@ from cryptography.fernet import Fernet
 import jwt
 import rsa
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 import base64
 
 """
@@ -24,13 +24,13 @@ print( timestamp )
 
 Log_Format = "[%(levelname)s][%(asctime)s] %(message)s"
 
-logging.basicConfig(filename = "server.log",
-                    filemode = "w",
-                    format = Log_Format)
+logging.basicConfig(filename="server.log",
+                    filemode='a',
+                    format='[%(asctime)s][%(msecs)d][%(name)s][%(levelname)s]%(message)s',
+                    datefmt='%H:%M:%S',
+                    level=logging.DEBUG)
 
-logger = logging.getLogger()
-
-logger.info("Logger setup finished!")
+logging.info("Logger setup finished!")
 
 s = socket.socket()
 s.bind(("127.0.0.1", 1234))
@@ -40,7 +40,7 @@ import json
 def getdate():
 	return time.time()
     
-logger.info("Defining functions...")
+logging.info("Defining functions...")
 
 def testecho(headers, data):
 	data += "TESTECHO!"
@@ -56,9 +56,10 @@ def checkemail(email):
 	else:
 		return False
 
-def activateAccount(headers, data):
-	# Post request payload example: payload = {"email":"jason@gmail.com", "password": "p@ssword", "license": "ikAWYTeMN7KftBHEkdbNto8ykSCtXJnL"}
-	logger.info("Account activation request")
+def activateAccount(headers, data, addr):
+	
+	# Post request payload: payload = {"email":"jason@gmail.com", "password": "p@ssword", "license": "ikAWYTeMN7KftBHEkdbNto8ykSCtXJnL"}
+	logging.info("Account activation request")
 	try:
 		c = headers["Content-Type"].split(";")[0]
 		if c != "application/json":
@@ -66,16 +67,27 @@ def activateAccount(headers, data):
 	except KeyError:
 		return json.dumps({"ERROR": "Content-Type header doesn't exist!"})
 	
+	# Encryption is not really needed as there would no be any point in hacking the account as the account is linked to a specific email!
+
 	try:
 		jsondat = json.loads(data)
 	except:
 		return json.dumps({"ERROR": "Json data parsing failed!"})
 	
+	"""
+	try:
+		jwttoken = jwt.decode(jsondat["token"], "secret", algorithms=["HS256"])
+	except:
+		#return json.dumps({"ERROR": "JWT Token invalid"})
+		return json.dumps({"ERROR": "Json data parsing failed!"})
+	"""
+
 	try:
 		email = jsondat["email"]
 		password = jsondat["password"]
 		license = jsondat["license"]
 	except:
+		logging.error(f"User from ip address {addr[0]} has broken the jwt token secret and modified the data!")
 		return json.dumps({"ERROR": "Json data parsing failed!"})
 	
 	if checkemail(email) == False:
@@ -93,6 +105,7 @@ def activateAccount(headers, data):
 	if results[0][0] == license:
 		print("License found!")
 		print(f"License length: {results[0][1]} days")
+		token = secrets.token_hex(32)
 		print("Deleting license key and generating encryption key...")
 		enckey = Fernet.generate_key().decode()
 		enckey2 = enckey = Fernet.generate_key().decode()
@@ -102,9 +115,13 @@ def activateAccount(headers, data):
 		y = date.year
 		d = date.day
 		print(f"License expiring on: {d}/{m}/{y}")
-		token = secrets.token_hex(32)
 		cur.execute("INSERT INTO users (email, password, enckey, enckey2, expirydate, token) VALUES (?, ?, ?, ?, ?, ?);", (email, password, enckey, enckey2, expirydate, token,))
 		cur.execute("DELETE FROM tokens WHERE data = ?;", (license,))
+		now = datetime.now()
+
+		dt_string = now.strftime("[%d/%m/%Y][%H:%M:%S] ")
+		with open("registeration.log", "a") as f:
+			f.write(f"{dt_string}Account registeration with email {email} and password hash {sha256(password)}!")
 	else:
 		return json.dumps({"FAILED": "Creation failed"})
 
@@ -121,7 +138,7 @@ postrequestpaths = {
 from genlicense import genKey
 
 
-logger.info("Generating encryption keys...")
+logging.info("Generating encryption keys...")
 print("Generating new encryption keys...")
 
 public_key, private_key = rsa.newkeys(2048)
@@ -158,7 +175,7 @@ def HandleReq(conn, addr):
 	reqDat = headers[0].split(" ")
 
 	if reqDat[0] == "GET":
-		logger.debug("New GET request from " + addr[0] + ":" + addr[1])
+		logging.debug("New GET request from " + addr[0] + ":" + addr[1])
 		conn.sendall(b"HTTP/1.1 400 Bad Request")
 		conn.close()
 	
@@ -188,13 +205,13 @@ def HandleReq(conn, addr):
 		if reqpath[len(reqpath) - 1] != "/":
 			reqpath += "/"
 
-		responsedat = postrequestpaths[reqpath](headers, reqdata)
+		responsedat = postrequestpaths[reqpath](headers, reqdata, addr)
 		
 		conn.sendall(f"HTTP/1.1 200 OK\nContent-Type: application/json; charset=utf-8\r\n\r\n{responsedat}".encode())
 		conn.close()
 
 	elif reqDat[0] == "CLIENT":
-		logger.debug("Client login request from " + addr[0])
+		logging.debug("Client login request from " + addr[0])
 		conn.sendall(public_pem)
 
 		keyEnc = conn.recv(256)
@@ -307,7 +324,7 @@ def HandleReq(conn, addr):
 		waitTillConfirm(conn)
 		conn.send(fernet.encrypt(update_key))
 	elif reqDat[0] == "CLIENT2":
-		logger.debug("Bot client login request from " + addr[0])
+		logging.debug("Bot client login request from " + addr[0])
 		conn.sendall(public_pem)
 
 		keyEnc = conn.recv(256)
@@ -346,7 +363,7 @@ def HandleReq(conn, addr):
 	conn.close()
 
 print("Listening...")
-logger.info("Listening for connections...")
+logging.info("Listening for connections...")
 s.listen()
 
 failed_requests = {}
