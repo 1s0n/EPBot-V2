@@ -22,7 +22,7 @@ import platform
 system = platform.system()
 
 if system == "Windows":
-	datapath = "/chromedriver/"
+	datapath = "chromedriver"
 elif system == "Linux":
 	datapath = "/chromedriver/"
 elif system == "Darwin":
@@ -35,9 +35,7 @@ from tkinter import Tk
 from tkinter import simpledialog
 w = Tk()
 w.withdraw()
-
-email = "{email}"
-password = "{password}"
+w.attributes('-topmost',1)
 
 print("Starting Bot...")
 
@@ -47,29 +45,14 @@ print("Detecting os and setting variables...")
 print("Setting more variables...")
 
 def onexit():
-	driver.close()
+	driver.quit()
 	os._exit(0)
-
-
-# Login field
-username_selector = "#login-username"
-password_selector = "#login-password"
-login_button_selector = "#login-submit-button"
-login_error_selector = "#content > div.ivu-card.ivu-card-dis-hover.ivu-card-shadow > div > div.inner-login-form.v-group.h-align-center > form > div.v-group.v-align-center > p"
 
 if not datapath == "LINUX":
 	print("Verifying chromedriver/autoinstalling chromedriver...")
+	print(datapath)
 	chromedriver_autoinstaller.install(path=datapath)
 
-
-driver = webdriver.Chrome()
-
-
-print("Logging in to education perfect...")
-driver.get("https://app.educationperfect.com/app/login")
-
-originalPos = driver.get_window_position()
-width = w.winfo_screenwidth()
 
 def hideWin():
 	return
@@ -83,10 +66,29 @@ def showWin():
 
 hideWin()
 
-# Wait for it to load
+
+# Login field
+
+email = "{email}"
+password = "{password}"
+
+username_selector = "#login-username"
+password_selector = "#login-password"
+login_button_selector = "#login-submit-button"
+login_error_selector = "#content > div.ivu-card.ivu-card-dis-hover.ivu-card-shadow > div > div.inner-login-form.v-group.h-align-center > form > div.v-group.v-align-center > p"
+
+
+driver = webdriver.Chrome()
+
+print("Logging in to education perfect...")
+driver.get("https://app.educationperfect.com/app/login")
+
+originalPos = driver.get_window_position()
+width = w.winfo_screenwidth()
 
 print("Trying to login...")
 
+# Wait for it to load
 while True:
 	try:
 		inputElement = driver.find_element(by=By.CSS_SELECTOR, value=username_selector)
@@ -94,6 +96,12 @@ while True:
 		break
 	except selenium.common.exceptions.NoSuchElementException:
 		sleep(1)
+
+
+
+
+
+
 
 inputElement = driver.find_element(by=By.CSS_SELECTOR, value=password_selector)
 inputElement.send_keys(password)

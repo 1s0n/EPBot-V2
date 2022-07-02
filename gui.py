@@ -21,19 +21,19 @@ class Values:
     typing_speed = 0.2 # Seconds delay between characters
     error_rate = 0 # 1 in {error_rate} chance the program will take hint on purpous
     rest_in_between_questions = 1 # Don't set below 1 or program might break
-
+    
 def getLogin():
     window = Tk()
     window.geometry("350x500")
     window.title("EPBot Login")
-
+    window.iconbitmap("icon.ico")
     window.config(bg='lightgray')
 
-    lab=Label(window,text='Education Perfect Login',bg='white')
+    lab=Label(window,text='Education Perfect Bot Login',bg='white')
     font=('Consolas',18)
     lab.config(font=font, bg="lightgray")
     lab.place(x=20,y=80)
-    lab=Label(window,text='  This window remembers your password for future logins, \nchange user by loging out via the main window after login.\nAuto login won\' work if central server is offline!',bg='white')
+    lab=Label(window,text='  Please enter your login details you registered on the website.',bg='white')
     font=('Consolas',8)
     lab.config(font=font, bg="lightgray")
     lab.place(x=0,y=120)
@@ -209,7 +209,7 @@ class ControlPanel(tkinter.Frame):
          
         tkinter.Frame.__init__(self, parent)
         self.controller = controller
-        label = ttk.Label(self, text ="Education Perfect Bot\n     Control panel", font = LARGEFONT)
+        label = ttk.Label(self, text ="Education Perfect Bot", font = LARGEFONT)
         label.place(x = 107, y=10)
         lab = ttk.Label(self, text="")
         self.label2 = ttk.Label(self, text ="Paused", font = font2)
@@ -245,7 +245,18 @@ class ControlPanel(tkinter.Frame):
 
         self.Typingslider.configure(state = "normal" if self.paused else "disabled")
 
+        self.randomErrorRateSlider = tkinter.Scale(
+            self,
+            from_=1,
+            to=100,
+            orient='horizontal',
+        )
 
+        TypingLab = ttk.Label(self, text="Random error rate (The higher the less errors, 100 = No errors): ")
+        TypingLab.place(x=10, y=240)
+        self.randomErrorRateSlider.place(x=10, y=260)
+        self.randomErrorRateSlider.configure(state = "normal" if self.paused else "disabled")
+        self.randomErrorRateSlider.configure(resolution=1, length=200)
 
     def togglestart(self):
         self.paused = not self.paused
@@ -310,6 +321,8 @@ class MainApp(threading.Thread):
         self.window = Tk()
         self.window.protocol("WM_DELETE_WINDOW", self.callback)
 
+        self.window.iconbitmap("icon.ico")
+
         self.window.geometry("500x800")
         self.window.title("Education Perfect Bot")
 
@@ -365,11 +378,11 @@ if __name__ == "__main__":
     funcs.exitfunc = donothing
     funcs.stoptask = donothing
     
-    """
+
     app = MainApp(exitfunc=onexit) 
 
     while True:
         time.sleep(10)
-    """
+
     print(getLogin())
     

@@ -87,7 +87,6 @@ def activateAccount(headers, data, addr):
 		password = jsondat["password"]
 		license = jsondat["license"]
 	except:
-		logging.error(f"User from ip address {addr[0]} has broken the jwt token secret and modified the data!")
 		return json.dumps({"ERROR": "Json data parsing failed!"})
 	
 	if checkemail(email) == False:
@@ -121,7 +120,7 @@ def activateAccount(headers, data, addr):
 
 		dt_string = now.strftime("[%d/%m/%Y][%H:%M:%S] ")
 		with open("registeration.log", "a") as f:
-			f.write(f"{dt_string}Account registeration with email {email} and password hash {sha256(password)}!")
+			f.write(f"{dt_string}Account registeration with email {email} and password hash {sha256(password)} on ip addr: {addr}!")
 	else:
 		return json.dumps({"FAILED": "Creation failed"})
 
@@ -130,9 +129,79 @@ def activateAccount(headers, data, addr):
 
 	return json.dumps({"SUCCESS": "Account created!"})
 
+def extendacc(headers, data, addr):
+	
+	# Post request payload: payload = {"email":"jason@gmail.com", "password": "p@ssword", "license": "ikAWYTeMN7KftBHEkdbNto8ykSCtXJnL"}
+	logging.info("Account extension request")
+	try:
+		c = headers["Content-Type"].split(";")[0]
+		if c != "application/json":
+			return json.dumps({"ERROR": "Content-Type header is not application/json!"})
+	except KeyError:
+		return json.dumps({"ERROR": "Content-Type header doesn't exist!"})
+	
+	# Encryption is not really needed as there would no be any point in hacking the account as the account is linked to a specific email!
+
+	try:
+		jsondat = json.loads(data)
+	except:
+		return json.dumps({"ERROR": "Json data parsing failed!"})
+	
+	try:
+		email = jsondat["email"]
+		license = jsondat["license"]
+	except:
+		return json.dumps({"ERROR": "Json data parsing failed!"})
+	
+	if checkemail(email) == False:
+		return json.dumps({"FAILED": "Invaliad Email!"})
+
+	print("Loading sql database...")
+	con = sqlite3.connect('license.db')
+	cur = con.cursor()
+	cur.execute("SELECT data, length FROM tokens WHERE data = ?", (license,))
+	results = cur.fetchall()
+	if len(license) < 1:
+		return json.dumps({"FAILED": "Creation failed, license doesn't exist or has been used!"})
+	
+	if results[0][0] == license:
+		print("License found!")
+		print(f"License length: {results[0][1]} days")
+		print("Deleting license key and extending date...")
+		print("Getting old expiry date...")
+		cur.execute("SELECT expirydate FROM users WHERE email = ?;")
+		date = cur.fetchone()
+		if len(date) > 1:
+			return json.dumps({"FAILED": "Email does not exist!"})
+		timenow = getdate()
+		date = date[0]
+		if date > timenow:
+			expirydate = date + (results[0][1] * 86400) # 86400 = 24*60*60
+		else:
+			expirydate = timenow + (results[0][1] * 86400) # 86400 = 24*60*60
+		date = datetime.fromtimestamp(expirydate)
+		m = date.month
+		y = date.year
+		d = date.day
+		print(f"License expiring on: {d}/{m}/{y}")
+		cur.execute("DELETE FROM tokens WHERE data = ?;", (license,))
+		now = datetime.now()
+
+		dt_string = now.strftime("[%d/%m/%Y][%H:%M:%S] ")
+		with open("registeration.log", "a") as f:
+			f.write(f"{dt_string}Account extension with email {email} on ip addr: {addr}!")
+	else:
+		return json.dumps({"FAILED": "Creation failed"})
+
+	con.commit()
+	con.close()
+
+	return json.dumps({"SUCCESS": "Account extended!"})
+
 postrequestpaths = {
 	"/testecho/": testecho,
-	"/activate/": activateAccount
+	"/activate/": activateAccount,
+	"/extend/": extendacc
 }
 
 from genlicense import genKey
@@ -266,12 +335,21 @@ def HandleReq(conn, addr):
 		if "email" in loginjson and "password" in loginjson:
 			password = loginjson["password"]
 
-		cur.execute("SELECT enckey, enckey2 FROM users WHERE (email, password) = (?, ?);", (email, password,))
+		cur.execute("SELECT enckey, enckey2, expirydate FROM users WHERE (email, password) = (?, ?);", (email, password,))
 		res = cur.fetchone()
-
+		datern = getdate()
+		expirydate = res[2]
+		print(expirydate)
+		if expirydate > datern:
+			print("Account expired!")
+			conn.send(fernet.encrypt(b"FAILED"))
+			conn.close()
+			return
 		if res == None:
 			print("FAILED")
 			conn.send(fernet.encrypt(b"FAILED"))
+			conn.close()
+			return
 		else:
 			data = res[0].encode()
 			data = sha256(data).hexdigest()
