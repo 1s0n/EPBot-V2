@@ -19,9 +19,9 @@ timestamp = int( dt.timestamp() )
 print( timestamp )
 """
 
-# TODO: Implement auto-updates...
 #TODO: Make Website
-
+verifyservers = {"MainServer": ("TCP", "cn-hk-tx-2.natfrp.cloud", "47599")}
+verifyserver = verifyservers["MainServer"]
 Log_Format = "[%(levelname)s][%(asctime)s] %(message)s"
 
 logging.basicConfig(filename="server.log",
@@ -33,7 +33,7 @@ logging.basicConfig(filename="server.log",
 logging.info("Logger setup finished!")
 
 s = socket.socket()
-s.bind(("127.0.0.1", 1234))
+s.bind(("127.0.0.1", 9128))
 
 import json
 
@@ -97,18 +97,22 @@ def activateAccount(headers, data, addr):
 	cur = con.cursor()
 	cur.execute("SELECT data, length FROM tokens WHERE data = ?", (license,))
 	results = cur.fetchall()
+	if len(results) < 1:
+		return json.dumps({"FAILED": "Invalid license!"})
+	results = results[0]
+	if len(results) < 1:
+		return json.dumps({"FAILED": "Invalid license!"})
 	if len(license) < 1:
-		return json.dumps({"FAILED": "Creation failed"})
-	print(results[0][0])
+		return json.dumps({"FAILED": "Invalid license!"})
 	print(results[0])
-	if results[0][0] == license:
+	if results[0] == license:
 		print("License found!")
-		print(f"License length: {results[0][1]} days")
+		print(f"License length: {results[1]} days")
 		token = secrets.token_hex(32)
 		print("Deleting license key and generating encryption key...")
 		enckey = Fernet.generate_key().decode()
 		enckey2 = enckey = Fernet.generate_key().decode()
-		expirydate = getdate() + (results[0][1] * 86400) # 86400 = 24*60*60
+		expirydate = getdate() + (results[1] * 86400) # 86400 = 24*60*60
 		date = datetime.fromtimestamp(expirydate)
 		m = date.month
 		y = date.year
@@ -120,9 +124,9 @@ def activateAccount(headers, data, addr):
 
 		dt_string = now.strftime("[%d/%m/%Y][%H:%M:%S] ")
 		with open("registeration.log", "a") as f:
-			f.write(f"{dt_string}Account registeration with email {email} and password hash {sha256(password)} on ip addr: {addr}!")
+			f.write(f"{dt_string}Account registeration with email {email} and password hash {sha256(password.encode())} on ip addr: {addr}!")
 	else:
-		return json.dumps({"FAILED": "Creation failed"})
+		return json.dumps({"FAILED": "Invalid license."})
 
 	con.commit()
 	con.close()
@@ -236,6 +240,8 @@ def waitTillConfirm(conn, data=b"a"):
 			break
 		time.sleep(0.5)
 
+client_hashes = ["f74c02cf28d39b883fb4bf815f647dbb86e27bdf7ae583d8a677f7c118dd58bd", "CorrectHashLolf74c02cf28d39b883fb4bf815f647dbb86e27bdf7ae583d8a677f7c118dd58bd"]
+
 def HandleReq(conn, addr):
 	print("Accepted!")
 	header = conn.recv(1024).decode()
@@ -300,7 +306,7 @@ def HandleReq(conn, addr):
 		verhash = sha256(verhash).hexdigest().encode() 
 		print(verhash)
 		vers = socket.socket()
-		vers.connect(("127.0.0.1", 9821))
+		vers.connect((verifyserver[1], int(verifyserver[2])))
 		vers.sendall(b"1")
 		vers.sendall(verhash)
 		conn.send(b"send")
@@ -313,7 +319,20 @@ def HandleReq(conn, addr):
 			print("Handshake hash verification failed!")
 			print("Handshake failed! Closing connection...")
 			conn.close()
-		
+		client_hash = conn.recv(1024)
+		chash = fernet.decrypt(client_hash).decode()
+		hashed = False
+		for hash in client_hashes:
+			if chash == hash:
+				hashed = True
+		if not hashed:
+			print("HASH FAILED!")
+			print(chash)
+			conn.send(fernet.encrypt(b"HASH FAILED!"))
+			conn.close()
+			return 
+
+		conn.send(b"A")
 		email = conn.recv(1024)
 		email = fernet.decrypt(email).decode()
 		print("Request email " + email)
@@ -340,9 +359,9 @@ def HandleReq(conn, addr):
 		datern = getdate()
 		expirydate = res[2]
 		print(expirydate)
-		if expirydate > datern:
+		if expirydate < datern:
 			print("Account expired!")
-			conn.send(fernet.encrypt(b"FAILED"))
+			conn.send(fernet.encrypt(b"FAILED! Account expired!"))
 			conn.close()
 			return
 		if res == None:
@@ -368,6 +387,8 @@ def HandleReq(conn, addr):
 		versiondat = LoadVersionInfo()
 		latest_build = versiondat["version"]
 		latest_buildid = versiondat["release"]
+		latest_hash = versiondat["hash"]
+
 		if latest_buildid > client_build_no:
 			print("Client needs updating!")
 			conn.send(fernet.encrypt(b"UPDATE_REQUEST"))
@@ -401,6 +422,16 @@ def HandleReq(conn, addr):
 		conn.send(fernet.encrypt(b"LOGIN_SUCCESS"))
 		waitTillConfirm(conn)
 		conn.send(fernet.encrypt(update_key))
+		hashdata = conn.recv(1024)
+		hashdata = fernet.decrypt(hashdata).decode()
+		if hashdata == latest_hash:
+			conn.send(fernet.encrypt(b"Success!"))
+		else:
+			print("HASHDATAFALSE!")
+			conn.send(fernet.encrypt(b"Redownload!"))
+		conn.close()
+		
+
 	elif reqDat[0] == "CLIENT2":
 		logging.debug("Bot client login request from " + addr[0])
 		conn.sendall(public_pem)

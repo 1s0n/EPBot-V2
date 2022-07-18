@@ -32,7 +32,9 @@ password TEXT NOT NULL,
 enckey TEXT NOT NULL,
 enckey2 TEXT NOT NULL,
 expirydate INTEGER NOT NULL,
-token TEXT NOT NULL
+token TEXT NOT NULL,
+branch TEXT NOT NULL,
+advanced_account INTEGER NOT NULL
 );
 """
 

@@ -1,5 +1,10 @@
 {
-    "version": "1.0.2",
-    "release": 3,
-    "path": "builds/1.0.2.py"
+    "version": "1.0.0",
+    "release": 1,
+    "path": "builds/1.0.0.py",
+    "hash": "af2821df0c52e60d1e03fe24231fab2c91882a4305987391d84ae83387cf1b6f",
+    "beta": "b1.1.0",
+    "beta_release": 2,
+    "beta_path": "builds/1.0.1.py",
+    "beta_hash": "af2821df0c52e60d1e03fe24231fab2c91882a4305987391d84ae83387cf1b6f"
 }
